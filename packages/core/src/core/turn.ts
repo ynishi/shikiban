@@ -240,16 +240,20 @@ export class Turn {
           if (text.includes(AI_AGREEMENT_MARKER)) {
             // Just yield the content as-is and trigger the agreement event
             yield { type: GeminiEventType.Content, value: text };
-            
+
             // Extract a simple message for the UI indicator
             const startIndex = text.indexOf(AI_AGREEMENT_MARKER);
             const endIndex = text.indexOf(AI_AGREEMENT_END_MARKER);
             const hasEndMarker = endIndex > startIndex;
-            
+
             // Yield the agreement event with a simple message
-            yield { 
-              type: GeminiEventType.AwaitingUserAgreement, 
-              value: { message: hasEndMarker ? "See above for details" : "Agreement requested" }
+            yield {
+              type: GeminiEventType.AwaitingUserAgreement,
+              value: {
+                message: hasEndMarker
+                  ? 'See above for details'
+                  : 'Agreement requested',
+              },
             };
           } else {
             yield { type: GeminiEventType.Content, value: text };

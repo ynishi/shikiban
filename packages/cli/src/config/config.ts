@@ -66,6 +66,7 @@ export interface CliArgs {
   ideModeFeature: boolean | undefined;
   proxy: string | undefined;
   includeDirectories: string[] | undefined;
+  noSelfIntroduce?: boolean;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -212,6 +213,11 @@ export async function parseArguments(): Promise<CliArgs> {
       coerce: (dirs: string[]) =>
         // Handle comma-separated values
         dirs.flatMap((dir) => dir.split(',').map((d) => d.trim())),
+    })
+    .option('no-self-introduce', {
+      type: 'boolean',
+      description: 'Do not show the self-introduction message on startup.',
+      default: false,
     })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')

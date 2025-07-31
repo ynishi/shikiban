@@ -269,6 +269,8 @@ export async function main() {
           settings={settings}
           startupWarnings={startupWarnings}
           version={version}
+          noSelfIntroduce={argv.noSelfIntroduce}
+          workspaceRoot={workspaceRoot}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },

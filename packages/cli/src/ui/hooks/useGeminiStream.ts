@@ -599,6 +599,7 @@ export const useGeminiStream = (
       handleChatCompressionEvent,
       handleFinishedEvent,
       handleMaxSessionTurnsEvent,
+      onUserAgreementRequested,
     ],
   );
 
