@@ -94,6 +94,7 @@ export const useGeminiStream = (
   performMemoryRefresh: () => Promise<void>,
   modelSwitchedFromQuotaError: boolean,
   setModelSwitchedFromQuotaError: React.Dispatch<React.SetStateAction<boolean>>,
+  onUserAgreementRequested?: (message: string) => void,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -572,6 +573,11 @@ export const useGeminiStream = (
             // handle later because we want to move pending history to history
             // before we add loop detected message to history
             loopDetectedRef.current = true;
+            break;
+          case ServerGeminiEventType.AwaitingUserAgreement:
+            if (onUserAgreementRequested) {
+              onUserAgreementRequested(event.value.message);
+            }
             break;
           default: {
             // enforces exhaustive switch-case
