@@ -295,6 +295,17 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
   return `${basePrompt}${memorySuffix}`;
 }
 
+const AWAITING_USER_AGREEMENT_MARKER = `=== 🛑 AWAITING_USER_AGREEMENT ===
+Please provide specific confirmation items or questions here to ensure alignment and prevent unintended actions.
+For example:
+- Will proceed with [specific action, e.g., "refactoring the authentication module"].
+- Will modify [list of files/areas, e.g., "src/auth.ts and tests/auth.test.ts"].
+- Will add [new dependencies/configurations, e.g., "a new 'jsonwebtoken' library"].
+- (Optional) If you need me to load additional context (e.g., coding guidelines, specific
+  documentation) before proceeding, please provide the absolute file paths now.
+Example: "Yes, proceed. Also, please read /docs/coding_standards.md and /configs/project_settings.json."
+ === END_AGREEMENT ===`;
+
 /**
  * Provides the partner-style system prompt emphasizing collaboration and quality.
  */
@@ -397,12 +408,7 @@ When the current directory is a Git repository:
 When explicit user agreement is required before important decisions or major changes, use the following markers:
 
 \`\`\`
-=== 🛑 AWAITING_USER_AGREEMENT ===
-Confirmation items listed here. For example:
-- Will execute large-scale refactoring
-- Will make changes affecting multiple files
-- Will add new dependencies
-=== END_AGREEMENT ===
+${AWAITING_USER_AGREEMENT_MARKER}
 \`\`\`
 
 Using this marker will:
@@ -617,12 +623,7 @@ When the current directory is a Git repository:
 When explicit user agreement is required before important decisions or major changes, use the following markers:
 
 \`\`\`
-=== 🛑 AWAITING_USER_AGREEMENT ===
-Confirmation items listed here. For example:
-- Will execute large-scale refactoring
-- Will make changes affecting multiple files
-- Will add new dependencies
-=== END_AGREEMENT ===
+${AWAITING_USER_AGREEMENT_MARKER}
 \`\`\`
 
 Using this marker will:

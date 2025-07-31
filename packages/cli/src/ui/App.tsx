@@ -681,7 +681,10 @@ const App = ({
   }, [history, logger]);
 
   const isInputActive =
-    streamingState === StreamingState.Idle && !initError && !isProcessing;
+    streamingState === StreamingState.Idle &&
+    !initError &&
+    !isProcessing &&
+    !isAwaitingUserAgreement;
 
   const handleClearScreen = useCallback(() => {
     clearItems();
