@@ -8,6 +8,7 @@ import { BaseTool, Icon, ToolResult } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { getErrorMessage } from '../utils/errors.js';
 import * as path from 'path';
+import * as fs from 'fs';
 import { glob } from 'glob';
 import { getCurrentGeminiMdFilename } from './memoryTool.js';
 import {
@@ -223,7 +224,7 @@ Use this tool when the user's query implies needing the content of several files
 
   getDescription(params: ReadManyFilesParams): string {
     const allPatterns = [...params.paths, ...(params.include || [])];
-    const pathDesc = `using patterns: \`${allPatterns.join('`, `')}\` (within target directory: \`${this.config.getTargetDir()}\`)`;
+    const pathDesc = `using intelligently resolved patterns: \`${allPatterns.join('`, `')}\` (within target directory: \`${this.config.getTargetDir()}\`)`;
 
     // Determine the final list of exclusion patterns exactly as in execute method
     const paramExcludes = params.exclude || [];
@@ -293,11 +294,59 @@ Use this tool when the user's query implies needing the content of several files
       ? [...DEFAULT_EXCLUDES, ...exclude]
       : [...exclude];
 
-    const searchPatterns = [...inputPatterns, ...include];
-    if (searchPatterns.length === 0) {
+    const projectRoot = this.config.getProjectRoot();
+    const currentWorkingDirectory = process.cwd();
+
+    const resolvePath = async (p: string): Promise<string | null> => {
+      // 1. Check as @project-root relative path
+      if (p.startsWith('@')) {
+        const projectRootRelativePath = path.join(projectRoot, p.substring(1));
+        if (fs.existsSync(projectRootRelativePath)) {
+          return projectRootRelativePath;
+        }
+      }
+
+      // 2. Check as absolute path
+      if (path.isAbsolute(p)) {
+        return p;
+      }
+
+      // 3. Check as relative to project root
+      const projectRootRelativePath = path.join(projectRoot, p);
+      if (fs.existsSync(projectRootRelativePath)) {
+        return projectRootRelativePath;
+      }
+
+      // 4. Check as relative to current working directory
+      const cwdRelativePath = path.join(currentWorkingDirectory, p);
+      if (fs.existsSync(cwdRelativePath)) {
+        return cwdRelativePath;
+      }
+
+      return null;
+    };
+
+    const resolvedSearchPatterns: string[] = [];
+    for (const pattern of [...inputPatterns, ...include]) {
+      const resolved = await resolvePath(pattern);
+      if (resolved) {
+        // If it's a directory, append **/* to make it a glob pattern for recursive search
+        const stats = fs.statSync(resolved);
+        if (stats && stats.isDirectory()) {
+          resolvedSearchPatterns.push(path.join(resolved, '**/*'));
+        } else {
+          resolvedSearchPatterns.push(resolved);
+        }
+      } else {
+        // If it's not a resolvable path, treat it as a direct glob pattern
+        resolvedSearchPatterns.push(pattern);
+      }
+    }
+
+    if (resolvedSearchPatterns.length === 0) {
       return {
-        llmContent: 'No search paths or include patterns provided.',
-        returnDisplay: `## Information\n\nNo search paths or include patterns were specified. Nothing to read or concatenate.`,
+        llmContent: 'No search paths or include patterns provided or resolvable.',
+        returnDisplay: `## Information\n\nNo search paths or include patterns were specified or could be resolved. Nothing to read or concatenate.`,
       };
     }
 
@@ -307,7 +356,7 @@ Use this tool when the user's query implies needing the content of several files
 
       for (const dir of workspaceDirs) {
         const entriesInDir = await glob(
-          searchPatterns.map((p) => p.replace(/\\/g, '/')),
+          resolvedSearchPatterns.map((p) => p.replace(/\\/g, '/')), // Use resolved patterns
           {
             cwd: dir,
             ignore: effectiveExcludes,

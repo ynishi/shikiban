@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import { BaseTool, Icon, ToolResult, ToolLocation } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
@@ -125,15 +125,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     if (errors) {
       return errors;
     }
-    if (!path.isAbsolute(params.path)) {
-      return `Path must be absolute: ${params.path}`;
-    }
-
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(params.path)) {
-      const directories = workspaceContext.getDirectories();
-      return `Path must be within one of the workspace directories: ${directories.join(', ')}`;
-    }
+    // Path validation and workspace check moved to execute for intelligent resolution
     return null;
   }
 
@@ -167,8 +159,11 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
    * @returns A string describing the file being read
    */
   getDescription(params: LSToolParams): string {
-    const relativePath = makeRelative(params.path, this.config.getTargetDir());
-    return shortenPath(relativePath);
+    if (!params || typeof params.path !== 'string' || params.path.trim() === '') {
+      return `Path unavailable`;
+    }
+    // Description will now reflect the path hint, not a resolved absolute path
+    return `Listing directory for: ${params.path}`;
   }
 
   // Helper for consistent error formatting
@@ -178,6 +173,11 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       // Keep returnDisplay simpler in core logic
       returnDisplay: `Error: ${returnDisplay}`,
     };
+  }
+
+  toolLocations(params: LSToolParams): ToolLocation[] {
+    // Path is resolved in execute, so we can't provide a precise location here.
+    return [];
   }
 
   /**
@@ -197,24 +197,59 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       );
     }
 
+    const pathHint = params.path;
+    let resolvedPath: string | null = null;
+    const projectRoot = this.config.getProjectRoot();
+
+    if (pathHint.startsWith('@')) {
+      resolvedPath = path.join(projectRoot, pathHint.substring(1));
+    } else {
+      // For non-'@' paths, it must be an absolute path as per current LS tool contract
+      if (path.isAbsolute(pathHint)) {
+        resolvedPath = pathHint;
+      } else {
+        return this.errorResult(
+          `Error: Path must be absolute or start with '@' for project root relative path. Received: ${pathHint}`,
+          `Invalid path format.`, // User-friendly message
+        );
+      }
+    }
+
+    // Now that we have a resolvedPath, perform workspace and existence checks
+    if (!resolvedPath) {
+      return this.errorResult(
+        `Error: Could not resolve path: ${pathHint}`,
+        `Failed to resolve path.`, // User-friendly message
+      );
+    }
+
+    const workspaceContext = this.config.getWorkspaceContext();
+    if (!workspaceContext.isPathWithinWorkspace(resolvedPath)) {
+      const directories = workspaceContext.getDirectories();
+      return this.errorResult(
+        `Error: Path '${resolvedPath}' is not within one of the workspace directories: ${directories.join(', ')}`,
+        `Path outside workspace.`, // User-friendly message
+      );
+    }
+
     try {
-      const stats = fs.statSync(params.path);
+      const stats = fs.statSync(resolvedPath);
       if (!stats) {
         // fs.statSync throws on non-existence, so this check might be redundant
         // but keeping for clarity. Error message adjusted.
         return this.errorResult(
-          `Error: Directory not found or inaccessible: ${params.path}`,
-          `Directory not found or inaccessible.`,
+          `Error: Directory not found or inaccessible: ${resolvedPath}`,
+          `Directory not found or inaccessible.`, // User-friendly message
         );
       }
       if (!stats.isDirectory()) {
         return this.errorResult(
-          `Error: Path is not a directory: ${params.path}`,
-          `Path is not a directory.`,
+          `Error: Path is not a directory: ${resolvedPath}`,
+          `Path is not a directory.`, // User-friendly message
         );
       }
 
-      const files = fs.readdirSync(params.path);
+      const files = fs.readdirSync(resolvedPath);
 
       const defaultFileIgnores =
         this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
@@ -239,7 +274,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       if (files.length === 0) {
         // Changed error message to be more neutral for LLM
         return {
-          llmContent: `Directory ${params.path} is empty.`,
+          llmContent: `Directory ${resolvedPath} is empty.`,
           returnDisplay: `Directory is empty.`,
         };
       }
@@ -249,7 +284,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
           continue;
         }
 
-        const fullPath = path.join(params.path, file);
+        const fullPath = path.join(resolvedPath, file);
         const relativePath = path.relative(
           this.config.getTargetDir(),
           fullPath,
@@ -299,7 +334,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         .map((entry) => `${entry.isDirectory ? '[DIR] ' : ''}${entry.name}`)
         .join('\n');
 
-      let resultMessage = `Directory listing for ${params.path}:\n${directoryContent}`;
+      let resultMessage = `Directory listing for ${resolvedPath}:\n${directoryContent}`;
       const ignoredMessages = [];
       if (gitIgnoredCount > 0) {
         ignoredMessages.push(`${gitIgnoredCount} git-ignored`);
@@ -312,7 +347,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         resultMessage += `\n\n(${ignoredMessages.join(', ')})`;
       }
 
-      let displayMessage = `Listed ${entries.length} item(s).`;
+      let displayMessage = `Listed ${entries.length} item(s) in ${resolvedPath}.`;
       if (ignoredMessages.length > 0) {
         displayMessage += ` (${ignoredMessages.join(', ')})`;
       }
@@ -323,7 +358,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       };
     } catch (error) {
       const errorMsg = `Error listing directory: ${error instanceof Error ? error.message : String(error)}`;
-      return this.errorResult(errorMsg, 'Failed to list directory.');
+      return this.errorResult(errorMsg, `Failed to list directory: ${resolvedPath}.`);
     }
   }
 }
