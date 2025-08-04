@@ -29,6 +29,7 @@ describe('ReadFileTool', () => {
       getFileService: () => new FileDiscoveryService(tempRootDir),
       getTargetDir: () => tempRootDir,
       getWorkspaceContext: () => createMockWorkspaceContext(tempRootDir),
+      getProjectRoot: () => tempRootDir,
     } as unknown as Config;
     tool = new ReadFileTool(mockConfigInstance);
   });
@@ -43,14 +44,14 @@ describe('ReadFileTool', () => {
   describe('validateToolParams', () => {
     it('should return null for valid params (absolute path within root)', () => {
       const params: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'test.txt'),
+        pathHint: path.join(tempRootDir, 'test.txt'),
       };
       expect(tool.validateToolParams(params)).toBeNull();
     });
 
     it('should return null for valid params with offset and limit', () => {
       const params: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'test.txt'),
+        pathHint: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: 10,
       };
@@ -58,7 +59,7 @@ describe('ReadFileTool', () => {
     });
 
     it('should return error for relative path', () => {
-      const params: ReadFileToolParams = { absolute_path: 'test.txt' };
+      const params: ReadFileToolParams = { pathHint: 'test.txt' };
       expect(tool.validateToolParams(params)).toBe(
         `File path must be absolute, but was relative: test.txt. You must provide an absolute path.`,
       );
@@ -66,7 +67,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for path outside root', () => {
       const outsidePath = path.resolve(os.tmpdir(), 'outside-root.txt');
-      const params: ReadFileToolParams = { absolute_path: outsidePath };
+      const params: ReadFileToolParams = { pathHint: outsidePath };
       const error = tool.validateToolParams(params);
       expect(error).toContain(
         'File path must be within one of the workspace directories',
@@ -75,7 +76,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for negative offset', () => {
       const params: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'test.txt'),
+        pathHint: path.join(tempRootDir, 'test.txt'),
         offset: -1,
         limit: 10,
       };
@@ -86,7 +87,7 @@ describe('ReadFileTool', () => {
 
     it('should return error for non-positive limit', () => {
       const paramsZero: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'test.txt'),
+        pathHint: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: 0,
       };
@@ -94,7 +95,7 @@ describe('ReadFileTool', () => {
         'Limit must be a positive number',
       );
       const paramsNegative: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'test.txt'),
+        pathHint: path.join(tempRootDir, 'test.txt'),
         offset: 0,
         limit: -5,
       };
@@ -106,7 +107,7 @@ describe('ReadFileTool', () => {
     it('should return error for schema validation failure (e.g. missing path)', () => {
       const params = { offset: 0 } as unknown as ReadFileToolParams;
       expect(tool.validateToolParams(params)).toBe(
-        `params must have required property 'absolute_path'`,
+        `params must have required property 'pathHint'`,
       );
     });
   });
@@ -114,14 +115,14 @@ describe('ReadFileTool', () => {
   describe('getDescription', () => {
     it('should return a shortened, relative path', () => {
       const filePath = path.join(tempRootDir, 'sub', 'dir', 'file.txt');
-      const params: ReadFileToolParams = { absolute_path: filePath };
+      const params: ReadFileToolParams = { pathHint: filePath };
       expect(tool.getDescription(params)).toBe(
         path.join('sub', 'dir', 'file.txt'),
       );
     });
 
     it('should return . if path is the root directory', () => {
-      const params: ReadFileToolParams = { absolute_path: tempRootDir };
+      const params: ReadFileToolParams = { pathHint: tempRootDir };
       expect(tool.getDescription(params)).toBe('.');
     });
   });
@@ -129,7 +130,7 @@ describe('ReadFileTool', () => {
   describe('execute', () => {
     it('should return validation error if params are invalid', async () => {
       const params: ReadFileToolParams = {
-        absolute_path: 'relative/path.txt',
+        pathHint: 'relative/path.txt',
       };
       expect(await tool.execute(params, abortSignal)).toEqual({
         llmContent:
@@ -141,7 +142,7 @@ describe('ReadFileTool', () => {
 
     it('should return error if file does not exist', async () => {
       const filePath = path.join(tempRootDir, 'nonexistent.txt');
-      const params: ReadFileToolParams = { absolute_path: filePath };
+      const params: ReadFileToolParams = { pathHint: filePath };
 
       expect(await tool.execute(params, abortSignal)).toEqual({
         llmContent: `File not found: ${filePath}`,
@@ -153,7 +154,7 @@ describe('ReadFileTool', () => {
       const filePath = path.join(tempRootDir, 'textfile.txt');
       const fileContent = 'This is a test file.';
       await fsp.writeFile(filePath, fileContent, 'utf-8');
-      const params: ReadFileToolParams = { absolute_path: filePath };
+      const params: ReadFileToolParams = { pathHint: filePath };
 
       expect(await tool.execute(params, abortSignal)).toEqual({
         llmContent: fileContent,
@@ -171,7 +172,7 @@ describe('ReadFileTool', () => {
       ]);
       const filePath = path.join(tempRootDir, 'image.png');
       await fsp.writeFile(filePath, pngContent);
-      const params: ReadFileToolParams = { absolute_path: filePath };
+      const params: ReadFileToolParams = { pathHint: filePath };
 
       expect(await tool.execute(params, abortSignal)).toEqual({
         llmContent: {
@@ -188,7 +189,7 @@ describe('ReadFileTool', () => {
       const filePath = path.join(tempRootDir, 'fake-image.png');
       const fileContent = 'This is not a real png.';
       await fsp.writeFile(filePath, fileContent, 'utf-8');
-      const params: ReadFileToolParams = { absolute_path: filePath };
+      const params: ReadFileToolParams = { pathHint: filePath };
 
       expect(await tool.execute(params, abortSignal)).toEqual({
         llmContent: {
@@ -210,7 +211,7 @@ describe('ReadFileTool', () => {
       await fsp.writeFile(filePath, fileContent, 'utf-8');
 
       const params: ReadFileToolParams = {
-        absolute_path: filePath,
+        pathHint: filePath,
         offset: 5, // Start from line 6
         limit: 3,
       };
@@ -238,7 +239,7 @@ describe('ReadFileTool', () => {
         const ignoredFilePath = path.join(tempRootDir, 'foo.bar');
         await fsp.writeFile(ignoredFilePath, 'content', 'utf-8');
         const params: ReadFileToolParams = {
-          absolute_path: ignoredFilePath,
+          pathHint: ignoredFilePath,
         };
         const expectedError = `File path '${ignoredFilePath}' is ignored by .geminiignore pattern(s).`;
         expect(await tool.execute(params, abortSignal)).toEqual({
@@ -254,7 +255,7 @@ describe('ReadFileTool', () => {
         await fsp.writeFile(filePath, 'content', 'utf-8');
 
         const params: ReadFileToolParams = {
-          absolute_path: filePath,
+          pathHint: filePath,
         };
         const expectedError = `File path '${filePath}' is ignored by .geminiignore pattern(s).`;
         expect(await tool.execute(params, abortSignal)).toEqual({
@@ -268,14 +269,14 @@ describe('ReadFileTool', () => {
   describe('workspace boundary validation', () => {
     it('should validate paths are within workspace root', () => {
       const params: ReadFileToolParams = {
-        absolute_path: path.join(tempRootDir, 'file.txt'),
+        pathHint: path.join(tempRootDir, 'file.txt'),
       };
       expect(tool.validateToolParams(params)).toBeNull();
     });
 
     it('should reject paths outside workspace root', () => {
       const params: ReadFileToolParams = {
-        absolute_path: '/etc/passwd',
+        pathHint: '/etc/passwd',
       };
       const error = tool.validateToolParams(params);
       expect(error).toContain(
@@ -287,7 +288,7 @@ describe('ReadFileTool', () => {
     it('should provide clear error message with workspace directories', () => {
       const outsidePath = path.join(os.tmpdir(), 'outside-workspace.txt');
       const params: ReadFileToolParams = {
-        absolute_path: outsidePath,
+        pathHint: outsidePath,
       };
       const error = tool.validateToolParams(params);
       expect(error).toContain(

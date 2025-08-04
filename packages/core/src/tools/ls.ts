@@ -9,7 +9,6 @@ import path from 'path';
 import { BaseTool, Icon, ToolResult, ToolLocation } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
-import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
 
 /**
@@ -175,7 +174,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     };
   }
 
-  toolLocations(params: LSToolParams): ToolLocation[] {
+  toolLocations(_params: LSToolParams): ToolLocation[] {
     // Path is resolved in execute, so we can't provide a precise location here.
     return [];
   }
