@@ -99,21 +99,8 @@ export function getStructuredResponse(
   }
   return undefined;
 }
+export function extractTextAndErrorFromResponse(  response: GenerateContentResponse,): { text: string | undefined; errorText: string | undefined } {  const fullText = getResponseText(response);  if (!fullText) {    return { text: undefined, errorText: undefined };  }  const errorMatch = fullText.match(/<ERROR>(.*?)<\/ERROR>/s);  const errorText = errorMatch ? errorMatch[1].trim() : undefined;  const textWithoutError = fullText.replace(/<ERROR>.*?<\/ERROR>/s, '').trim();  return {    text: textWithoutError === '' ? undefined : textWithoutError,    errorText,  };}
 
-export function getStructuredResponseFromParts(
-  parts: Part[],
-): string | undefined {
-  const textContent = getResponseTextFromParts(parts);
-  const functionCallsJson = getFunctionCallsFromPartsAsJson(parts);
 
-  if (textContent && functionCallsJson) {
-    return `${textContent}\n${functionCallsJson}`;
-  }
-  if (textContent) {
-    return textContent;
-  }
-  if (functionCallsJson) {
-    return functionCallsJson;
-  }
-  return undefined;
-}
+export function getStructuredResponseFromParts(  parts: Part[],): string | undefined {  const textContent = getResponseTextFromParts(parts);  const functionCallsJson = getFunctionCallsFromPartsAsJson(parts);  if (textContent && functionCallsJson) {    return `${textContent}
+${functionCallsJson}`;  }  if (textContent) {    return textContent;  }  if (functionCallsJson) {    return functionCallsJson;  }  return undefined;}

@@ -28,5 +28,7 @@ export default defineConfig({
         ['json-summary', { outputFile: 'coverage-summary.json' }],
       ],
     },
+    // Add this include property
+    include: ['src/**/*.test.ts'],
   },
 });

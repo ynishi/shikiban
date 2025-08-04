@@ -189,7 +189,18 @@ export async function main() {
 
   setMaxSizedBoxDebugging(config.getDebugMode());
 
-  await config.initialize();
+  await config.initialize(); // This initializes toolRegistry and promptRegistry
+
+  // Initialize geminiClient if an auth type is already selected.
+  // If no auth type is selected, useAuthCommand in App.tsx will handle it.
+  if (settings.merged.selectedAuthType) {
+    try {
+      await config.refreshAuth(settings.merged.selectedAuthType);
+    } catch (err) {
+      console.error('Error during initial authentication:', err);
+      // Do not exit here, let App.tsx handle the auth dialog
+    }
+  }
 
   // Load custom themes from settings
   themeManager.loadCustomThemes(settings.merged.customThemes);

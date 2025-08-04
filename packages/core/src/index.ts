@@ -74,8 +74,10 @@ export * from './tools/memoryTool.js';
 export * from './tools/shell.js';
 export * from './tools/web-search.js';
 export * from './tools/read-many-files.js';
+export * from './tools/intelligent-read-file-v2.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
+export * from './tools/claudeCodeTool.js';
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';
