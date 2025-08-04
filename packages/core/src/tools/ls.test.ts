@@ -64,6 +64,7 @@ describe('LSTool', () => {
         respectGitIgnore: true,
         respectGeminiIgnore: true,
       }),
+      getProjectRoot: vi.fn().mockReturnValue(mockPrimaryDir),
     } as unknown as Config;
 
     lsTool = new LSTool(mockConfig);

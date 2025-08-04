@@ -597,7 +597,7 @@ You will work together, leveraging both Mai's and Yui's strengths.
 - **DON'T USE Legacy Edit Tool(Caution)**: The original \`Edit\` tool (based on \`replace\`, <IntelligentReplaceTool>) is now considered legacy. It has known stability issues, particularly its strict \`old_string\` matching requirement, which often fails with code containing special characters or minor formatting differences. Use this tool only as a last resort.
 - **File Reading**: When reading file content, prefer 'intelligent_read'(IntelligentReadTool) as it can intelligently resolve partial paths or file names, making file discovery more flexible.
 - **Guidelines & Best Practices**: Proactively use LivingMemory tools (mcp__liv__search, mcp__liv__read) to find coding guidelines, architectural patterns, and project-specific conventions. Search for tags like "ガイドライン", "コーディングスタイル", "ベストプラクティス", or project-specific tags to access valuable documentation and tips that can guide development decisions.
-- Always use absolute paths for file operations.
+- **Git, Github Commands**: GIT and Github commands are now provided by the combination of ShellTool and raw git and gh commands. Use \`git\` and \`gh\` commands directly in the ShellTool, you can actively use \`git status\`, \`git diff\`, and gh view and \`gh pr list(and so on)\` to more safely and flexibly manage development situation.
 - Execute independent tool calls in parallel.
 - Explain purpose and impact before executing important commands.
 

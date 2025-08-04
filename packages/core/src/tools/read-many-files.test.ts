@@ -67,6 +67,7 @@ describe('ReadManyFilesTool', () => {
       getTargetDir: () => tempRootDir,
       getWorkspaceDirs: () => [tempRootDir],
       getWorkspaceContext: () => new WorkspaceContext(tempRootDir),
+      getProjectRoot: () => tempRootDir,
     } as Partial<Config> as Config;
     tool = new ReadManyFilesTool(mockConfig);
 
@@ -444,6 +445,7 @@ describe('ReadManyFilesTool', () => {
         }),
         getWorkspaceContext: () => new WorkspaceContext(tempDir1, [tempDir2]),
         getTargetDir: () => tempDir1,
+        getProjectRoot: () => tempDir1,
       } as Partial<Config> as Config;
       tool = new ReadManyFilesTool(mockConfig);
 

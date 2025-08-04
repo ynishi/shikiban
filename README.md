@@ -1,4 +1,8 @@
-# Gemini CLI
+# Shikiban (指揮盤 - "Orchestration Pad")
+
+A fork of Gemini CLI
+
+Shikiban is more than just a command-line interface; it's designed to be your trusted companion in the development workflow. Inspired by the intuitive control of a MIDI controller, Shikiban aims to provide a deeply integrated and personalized experience, orchestrating various AI models and tools to accelerate your creativity and productivity.
 
 [![Gemini CLI CI](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml)
 
