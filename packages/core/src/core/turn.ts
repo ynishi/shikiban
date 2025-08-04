@@ -53,6 +53,7 @@ export enum GeminiEventType {
   MaxSessionTurns = 'max_session_turns',
   Finished = 'finished',
   LoopDetected = 'loop_detected',
+  AwaitingUserAgreement = 'awaiting_user_agreement',
 }
 
 export interface StructuredError {
@@ -147,6 +148,13 @@ export type ServerGeminiLoopDetectedEvent = {
   type: GeminiEventType.LoopDetected;
 };
 
+export type ServerGeminiAwaitingUserAgreementEvent = {
+  type: GeminiEventType.AwaitingUserAgreement;
+  value: {
+    message: string;
+  };
+};
+
 // The original union type, now composed of the individual types
 export type ServerGeminiStreamEvent =
   | ServerGeminiContentEvent
@@ -159,7 +167,12 @@ export type ServerGeminiStreamEvent =
   | ServerGeminiThoughtEvent
   | ServerGeminiMaxSessionTurnsEvent
   | ServerGeminiFinishedEvent
-  | ServerGeminiLoopDetectedEvent;
+  | ServerGeminiLoopDetectedEvent
+  | ServerGeminiAwaitingUserAgreementEvent;
+
+// Markers for AI to request user agreement
+export const AI_AGREEMENT_MARKER = '=== 🛑 AWAITING_USER_AGREEMENT ===';
+export const AI_AGREEMENT_END_MARKER = '=== END_AGREEMENT ===';
 
 // A turn manages the agentic loop turn within the server context.
 export class Turn {
@@ -223,7 +236,28 @@ export class Turn {
 
         const text = getResponseText(resp);
         if (text) {
-          yield { type: GeminiEventType.Content, value: text };
+          // Check for user agreement marker
+          if (text.includes(AI_AGREEMENT_MARKER)) {
+            // Just yield the content as-is and trigger the agreement event
+            yield { type: GeminiEventType.Content, value: text };
+
+            // Extract a simple message for the UI indicator
+            const startIndex = text.indexOf(AI_AGREEMENT_MARKER);
+            const endIndex = text.indexOf(AI_AGREEMENT_END_MARKER);
+            const hasEndMarker = endIndex > startIndex;
+
+            // Yield the agreement event with a simple message
+            yield {
+              type: GeminiEventType.AwaitingUserAgreement,
+              value: {
+                message: hasEndMarker
+                  ? 'See above for details'
+                  : 'Agreement requested',
+              },
+            };
+          } else {
+            yield { type: GeminiEventType.Content, value: text };
+          }
         }
 
         // Handle function calls (requesting tool execution)

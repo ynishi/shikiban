@@ -19,6 +19,7 @@ import {
 import { StreamingState, type HistoryItem, MessageType } from './types.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
+import os from 'node:os';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
@@ -37,6 +38,7 @@ import { AuthDialog } from './components/AuthDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { ShellConfirmationDialog } from './components/ShellConfirmationDialog.js';
+import { UserAgreementIndicator } from './components/UserAgreementIndicator.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -98,6 +100,8 @@ interface AppProps {
   settings: LoadedSettings;
   startupWarnings?: string[];
   version: string;
+  noSelfIntroduce?: boolean;
+  workspaceRoot?: string;
 }
 
 export const AppWrapper = (props: AppProps) => (
@@ -108,7 +112,14 @@ export const AppWrapper = (props: AppProps) => (
   </SessionStatsProvider>
 );
 
-const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
+const App = ({
+  config,
+  settings,
+  startupWarnings = [],
+  version,
+  noSelfIntroduce,
+  workspaceRoot,
+}: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
   const [updateInfo, setUpdateInfo] = useState<UpdateObject | null>(null);
@@ -175,6 +186,9 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     IdeContext | undefined
   >();
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isAwaitingUserAgreement, setIsAwaitingUserAgreement] =
+    useState<boolean>(false);
+  const [agreementMessage, setAgreementMessage] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = ideContext.subscribeToIdeContext(setIdeContextState);
@@ -209,6 +223,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     setShowPrivacyNotice(true);
   }, []);
   const initialPromptSubmitted = useRef(false);
+  const lastSubmittedPrompt = useRef<string | null>(null);
+  const modelSwitchRetryRef = useRef(false);
 
   const errorCount = useMemo(
     () =>
@@ -505,6 +521,19 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     performMemoryRefresh,
     modelSwitchedFromQuotaError,
     setModelSwitchedFromQuotaError,
+    (message: string) => {
+      setIsAwaitingUserAgreement(true);
+      setAgreementMessage(message);
+    },
+  );
+
+  // Wrap submitQuery to track last submitted prompt
+  const submitQueryWithTracking = useCallback(
+    (prompt: string) => {
+      lastSubmittedPrompt.current = prompt;
+      submitQuery(prompt);
+    },
+    [submitQuery],
   );
 
   // Input handling
@@ -512,10 +541,17 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
       if (trimmedValue.length > 0) {
-        submitQuery(trimmedValue);
+        // Check if we're awaiting user agreement
+        if (isAwaitingUserAgreement) {
+          // Clear the agreement state
+          setIsAwaitingUserAgreement(false);
+          setAgreementMessage('');
+          // Continue with the normal query
+        }
+        submitQueryWithTracking(trimmedValue);
       }
     },
-    [submitQuery],
+    [submitQueryWithTracking, isAwaitingUserAgreement],
   );
 
   const buffer = useTextBuffer({
@@ -645,7 +681,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   }, [history, logger]);
 
   const isInputActive =
-    streamingState === StreamingState.Idle && !initError && !isProcessing;
+    (!initError && !isProcessing) &&
+    (streamingState === StreamingState.Idle || isAwaitingUserAgreement);
 
   const handleClearScreen = useCallback(() => {
     clearItems();
@@ -715,7 +752,30 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const geminiClient = config.getGeminiClient();
 
+  // Generate self-introduction prompt
+  const selfIntroductionPrompt = useMemo(() => {
+    if (noSelfIntroduce || initialPrompt) {
+      return null;
+    }
+    const currentDate = new Date().toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    });
+    const osType = os.platform();
+    const currentDirectory = workspaceRoot || process.cwd();
+
+    return `あなたは今起動されました。以下の環境情報を含めて、自然な日本語で自己紹介をしてください：
+- 現在の日付: ${currentDate}
+- OS: ${osType}
+- 現在の作業ディレクトリ: ${currentDirectory}
+
+ユーザーに対して、親しみやすく、かつプロフェッショナルな口調で挨拶し、どのようなサポートができるか簡潔に説明してください。`;
+  }, [noSelfIntroduce, initialPrompt, workspaceRoot]);
+
   useEffect(() => {
+    // Submit initial prompt if exists
     if (
       initialPrompt &&
       !initialPromptSubmitted.current &&
@@ -726,18 +786,69 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
       !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
-      submitQuery(initialPrompt);
+      submitQueryWithTracking(initialPrompt);
+      initialPromptSubmitted.current = true;
+    }
+    // Otherwise submit self-introduction prompt
+    else if (
+      selfIntroductionPrompt &&
+      !initialPromptSubmitted.current &&
+      !isAuthenticating &&
+      !isAuthDialogOpen &&
+      !isThemeDialogOpen &&
+      !isEditorDialogOpen &&
+      !showPrivacyNotice &&
+      geminiClient?.isInitialized?.()
+    ) {
+      submitQueryWithTracking(selfIntroductionPrompt);
       initialPromptSubmitted.current = true;
     }
   }, [
     initialPrompt,
-    submitQuery,
+    selfIntroductionPrompt,
+    submitQueryWithTracking,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
     isEditorDialogOpen,
     showPrivacyNotice,
     geminiClient,
+  ]);
+
+  // Handle model switch retry
+  useEffect(() => {
+    if (
+      modelSwitchedFromQuotaError &&
+      !modelSwitchRetryRef.current &&
+      lastSubmittedPrompt.current &&
+      geminiClient?.isInitialized?.()
+    ) {
+      modelSwitchRetryRef.current = true;
+      // Add a message to inform user about retry
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: 'モデルが切り替わりました。プロンプトを再送信します...',
+        },
+        Date.now(),
+      );
+      // Retry the last prompt after a short delay
+      setTimeout(() => {
+        // Clear the quota error flag before retrying
+        config.setQuotaErrorOccurred(false);
+        if (lastSubmittedPrompt.current) {
+          submitQueryWithTracking(lastSubmittedPrompt.current);
+        }
+        setModelSwitchedFromQuotaError(false);
+        modelSwitchRetryRef.current = false;
+      }, 1000);
+    }
+  }, [
+    modelSwitchedFromQuotaError,
+    submitQueryWithTracking,
+    addItem,
+    geminiClient,
+    config,
   ]);
 
   if (quittingMessages) {
@@ -998,6 +1109,10 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                     <ShowMoreLines constrainHeight={constrainHeight} />
                   </Box>
                 </OverflowProvider>
+              )}
+
+              {isAwaitingUserAgreement && (
+                <UserAgreementIndicator message={agreementMessage} />
               )}
 
               {isInputActive && (

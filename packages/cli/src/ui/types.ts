@@ -14,6 +14,7 @@ export enum StreamingState {
   Idle = 'idle',
   Responding = 'responding',
   WaitingForConfirmation = 'waiting_for_confirmation',
+  AwaitingUserAgreement = 'awaiting_user_agreement',
 }
 
 // Copied from server/src/core/turn.ts for CLI usage
