@@ -40,7 +40,6 @@ import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { ShellConfirmationDialog } from './components/ShellConfirmationDialog.js';
 import { UserAgreementIndicator } from './components/UserAgreementIndicator.js';
 import { Colors } from './colors.js';
-import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
 import { LoadedSettings } from '../config/settings.js';
 import { Tips } from './components/Tips.js';
@@ -157,7 +156,6 @@ const App = ({
 
   const [geminiMdFileCount, setGeminiMdFileCount] = useState<number>(0);
   const [debugMessage, setDebugMessage] = useState<string>('');
-  const [showHelp, setShowHelp] = useState<boolean>(false);
   const [themeError, setThemeError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -489,7 +487,6 @@ const App = ({
     clearItems,
     loadHistory,
     refreshStatic,
-    setShowHelp,
     setDebugMessage,
     openThemeDialog,
     openAuthDialog,
@@ -511,7 +508,6 @@ const App = ({
     config.getGeminiClient(),
     history,
     addItem,
-    setShowHelp,
     config,
     setDebugMessage,
     handleSlashCommand,
@@ -913,6 +909,7 @@ const App = ({
                 item={h}
                 isPending={false}
                 config={config}
+                commands={slashCommands}
               />
             )),
           ]}
@@ -939,8 +936,6 @@ const App = ({
             <ShowMoreLines constrainHeight={constrainHeight} />
           </Box>
         </OverflowProvider>
-
-        {showHelp && <Help commands={slashCommands} />}
 
         <Box flexDirection="column" ref={mainControlsRef}>
           {/* Move UpdateNotification to render update notification above input area */}
