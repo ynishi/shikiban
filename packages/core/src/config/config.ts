@@ -34,6 +34,7 @@ import { GeminiClient } from '../core/client.js';
 import { ClaudeCodeTool } from '../tools/claudeCodeTool.js';
 import { GitTool } from '../tools/gitTool.js';
 import { GitHubTool } from '../tools/githubTool.js';
+import { ShikibanTool } from '../tools/shikiban-tool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
 import { getProjectTempDir } from '../utils/paths.js';
@@ -710,6 +711,7 @@ export class Config {
     registerCoreTool(ClaudeCodeTool, this);
     registerCoreTool(GitTool, this);
     registerCoreTool(GitHubTool, this);
+    registerCoreTool(ShikibanTool);
 
     await registry.discoverAllTools();
     return registry;

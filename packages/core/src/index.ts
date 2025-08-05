@@ -80,6 +80,7 @@ export * from './tools/mcp-tool.js';
 export * from './tools/claudeCodeTool.js';
 export * from './tools/gitTool.js';
 export * from './tools/githubTool.js';
+export * from './tools/shikiban-tool.js';
 
 
 // MCP OAuth

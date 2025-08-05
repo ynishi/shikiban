@@ -8,11 +8,15 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { Content } from '@google/genai';
 import { getProjectTempDir } from '../utils/paths.js';
+import { ShikibanSessionManager, TurnData } from '../tools/shikiban-tool.js';
 
 const LOG_FILE_NAME = 'logs.json';
 
 export enum MessageSenderType {
   USER = 'user',
+  AI = 'ai',
+  TOOL = 'tool',
+  SYSTEM = 'system',
 }
 
 export interface LogEntry {
@@ -30,9 +34,11 @@ export class Logger {
   private messageId = 0; // Instance-specific counter for the next messageId
   private initialized = false;
   private logs: LogEntry[] = []; // In-memory cache, ideally reflects the last known state of the file
+  private shikibanManager: ShikibanSessionManager;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
+    this.shikibanManager = ShikibanSessionManager.getInstance();
   }
 
   private async _readLogFile(): Promise<LogEntry[]> {
@@ -225,10 +231,123 @@ export class Logger {
         // If an entry was actually written (not a duplicate skip),
         // then this instance can increment its idea of the next messageId for this session.
         this.messageId = writtenEntry.messageId + 1;
+
+        // Also send to Shikiban Server
+        await this.logToShikiban(type, message, writtenEntry.timestamp);
       }
     } catch (_error) {
       // Error already logged by _updateLogFile or _readLogFile
     }
+  }
+
+  /**
+   * Log an AI response.
+   */
+  async logAiResponse(response: object): Promise<void> {
+    if (!this.initialized || this.sessionId === undefined) {
+      console.debug(
+        'Logger not initialized or session ID missing. Cannot log AI response.',
+      );
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const responseStr = JSON.stringify(response);
+
+    // Log to local file
+    await this.logMessage(MessageSenderType.AI, responseStr);
+
+    // Log to Shikiban with additional metadata
+    await this.logToShikiban(
+      MessageSenderType.AI,
+      responseStr,
+      timestamp,
+      { responseType: 'ai_response' }
+    );
+  }
+
+  /**
+   * Log a tool call.
+   */
+  async logToolCall(toolName: string, args: any, result?: any): Promise<void> {
+    if (!this.initialized || this.sessionId === undefined) {
+      console.debug(
+        'Logger not initialized or session ID missing. Cannot log tool call.',
+      );
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const toolCallData = {
+      tool: toolName,
+      args: args,
+      result: result,
+    };
+    const toolCallStr = JSON.stringify(toolCallData);
+
+    // Log to local file
+    await this.logMessage(MessageSenderType.TOOL, toolCallStr);
+
+    // Log to Shikiban with additional metadata
+    await this.logToShikiban(
+      MessageSenderType.TOOL,
+      toolCallStr,
+      timestamp,
+      { 
+        responseType: 'tool_call',
+        toolName: toolName,
+      }
+    );
+  }
+
+  /**
+   * Log a system message.
+   */
+  async logSystemMessage(message: string, metadata?: Record<string, any>): Promise<void> {
+    if (!this.initialized || this.sessionId === undefined) {
+      console.debug(
+        'Logger not initialized or session ID missing. Cannot log system message.',
+      );
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+
+    // Log to local file
+    await this.logMessage(MessageSenderType.SYSTEM, message);
+
+    // Log to Shikiban with additional metadata
+    await this.logToShikiban(
+      MessageSenderType.SYSTEM,
+      message,
+      timestamp,
+      {
+        responseType: 'system_message',
+        ...metadata,
+      }
+    );
+  }
+
+  /**
+   * Log a message to Shikiban Server.
+   */
+  private async logToShikiban(
+    type: MessageSenderType,
+    message: string,
+    timestamp: string,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
+    const turnData: TurnData = {
+      role: type,
+      content: message,
+      timestamp: timestamp,
+      metadata: {
+        ...metadata,
+        sessionId: this.sessionId,
+      },
+    };
+
+    await this.shikibanManager.logTurn(turnData);
   }
 
   _checkpointPath(tag: string): string {
