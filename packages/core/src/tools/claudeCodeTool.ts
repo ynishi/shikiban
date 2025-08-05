@@ -21,6 +21,7 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 export interface ClaudeCodeToolParams {
   prompt: string;
   timeout?: number;
+  continue?: boolean;
 }
 
 // Define the structure of the response from the Claude Code CLI process
@@ -100,6 +101,10 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
           timeout: {
             type: Type.NUMBER,
             description: `Optional timeout in milliseconds (default: ${ClaudeCodeTool.DEFAULT_TIMEOUT}).`,
+          },
+          continue: {
+            type: Type.BOOLEAN,
+            description: 'Optional: Whether to continue the previous session.',
           },
         },
         required: ['prompt'],
@@ -201,6 +206,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
     
     return new Promise<ClaudeCodeProcessResponse>((resolve) => {
       const args = ['-p', params.prompt, '--output-format', 'json', '--permission-mode', 'acceptEdits'];
+      if (params.continue) {
+        args.push('--continue');
+      }
       
       console.log(`[ClaudeCodeTool] Spawning command`, args);
       const isWindows = os.platform() === 'win32';
