@@ -78,6 +78,9 @@ export * from './tools/intelligent-read-file-v2.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
 export * from './tools/claudeCodeTool.js';
+export * from './tools/gitTool.js';
+export * from './tools/githubTool.js';
+
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';
