@@ -158,7 +158,11 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
    * @returns A string describing the file being read
    */
   getDescription(params: LSToolParams): string {
-    if (!params || typeof params.path !== 'string' || params.path.trim() === '') {
+    if (
+      !params ||
+      typeof params.path !== 'string' ||
+      params.path.trim() === ''
+    ) {
       return `Path unavailable`;
     }
     // Description will now reflect the path hint, not a resolved absolute path
@@ -357,7 +361,10 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       };
     } catch (error) {
       const errorMsg = `Error listing directory: ${error instanceof Error ? error.message : String(error)}`;
-      return this.errorResult(errorMsg, `Failed to list directory: ${resolvedPath}.`);
+      return this.errorResult(
+        errorMsg,
+        `Failed to list directory: ${resolvedPath}.`,
+      );
     }
   }
 }

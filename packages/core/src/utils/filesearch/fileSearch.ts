@@ -255,7 +255,7 @@ export class FileSearch {
       .withRelativePaths()
       .withDirs()
       .withPathSeparator('/') // Always use unix style paths
-      .exclude((_, dirPath) => {
+      .exclude((_: unknown, dirPath: string) => {
         const relativePath = path.relative(this.absoluteDir, dirPath);
         return dirFilter(`${relativePath}/`);
       });

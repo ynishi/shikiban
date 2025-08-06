@@ -811,13 +811,20 @@ const App = ({
     const osType = os.platform();
     const currentDirectory = workspaceRoot || process.cwd();
 
-    return `あなたは今起動されました。以下の環境情報を含めて、自然な日本語で自己紹介をしてください：
+    const friendlyPart = settings.merged.friendlyIntroduction === false ? '丁寧に' : '親しみやすく、';
+    const user = settings.merged.userNickName ? `ユーザー(${settings.merged.userNickName})` : 'ユーザー';
+
+    const introductionGreeting = settings.merged.introductionMode === 'returning'
+      ? 'いつものチームメンバーとして再び起動されました。'
+      : '新しいプロジェクトメンバーとして参加しました。';
+
+    return `あなたは、今、${introductionGreeting} 以下の環境情報を含めて、自然な日本語で自己紹介をしてください：
 - 現在の日付: ${currentDate}
 - OS: ${osType}
 - 現在の作業ディレクトリ: ${currentDirectory}
 
-ユーザーに対して、親しみやすく、かつプロフェッショナルな口調で挨拶し、どのようなサポートができるか簡潔に説明してください。`;
-  }, [noSelfIntroduce, initialPrompt, workspaceRoot]);
+${user}に対して、${friendlyPart}かつプロフェッショナルな口調で挨拶し、どのようなサポートができるか簡潔に説明してください。`;
+  }, [noSelfIntroduce, initialPrompt, workspaceRoot, settings.merged.friendlyIntroduction, settings.merged.userNickName, settings.merged.introductionMode]);
 
   useEffect(() => {
     // Submit initial prompt if exists

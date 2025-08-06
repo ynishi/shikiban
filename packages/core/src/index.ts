@@ -82,7 +82,6 @@ export * from './tools/claudeCodeTool.js';
 export * from './tools/gitTool.js';
 export * from './tools/githubTool.js';
 
-
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';
 export {

@@ -133,6 +133,10 @@ export interface Settings {
   includeDirectories?: string[];
 
   loadMemoryFromIncludeDirectories?: boolean;
+
+  userNickName?: string;
+  friendlyIntroduction?: boolean;
+  introductionMode?: 'initial' | 'returning';
 }
 
 export interface SettingsError {
