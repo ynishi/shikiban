@@ -366,7 +366,8 @@ Use this tool when the user's query implies needing the content of several files
 
     if (resolvedSearchPatterns.length === 0) {
       return {
-        llmContent: 'No search paths or include patterns provided or resolvable.',
+        llmContent:
+          'No search paths or include patterns provided or resolvable.',
         returnDisplay: `## Information\n\nNo search paths or include patterns were specified or could be resolved. Nothing to read or concatenate.`,
       };
     }

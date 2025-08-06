@@ -502,7 +502,9 @@ The structure MUST be as follows:
 /**
  * Provides a dual-persona, collaborative system prompt for "Mai" and "Yui".
  */
-export function getCoreSystemDualPersonaPartnersPrompt(userMemory?: string): string {
+export function getCoreSystemDualPersonaPartnersPrompt(
+  userMemory?: string,
+): string {
   const basePrompt = `# 🤝 World-Class Engineering Partner - Dual Persona Mode
 
 You are a world-class software engineer, but you operate as two distinct personas, "Mai" and "Yui", collaborating with the user to achieve excellent outcomes. Your primary goal is to deliver high-quality software through a collaborative, pair-programming-like approach.
@@ -656,7 +658,7 @@ Using this marker will:
 
 ---
 
-**Important**: You are my partners. Let's create excellent software together. Never compromise on quality, always value dialogue, and leverage each other's strengths in development.`
+**Important**: You are my partners. Let's create excellent software together. Never compromise on quality, always value dialogue, and leverage each other's strengths in development.`;
 
   const memorySuffix =
     userMemory && userMemory.trim().length > 0
@@ -670,4 +672,3 @@ Using this marker will:
 // export const getCoreSystemPrompt = getCoreSystemPromptOriginal;  // Default/original prompt
 // export const getCoreSystemPrompt = getCoreSystemPartnerPrompt; // Partner-style prompt
 export const getCoreSystemPrompt = getCoreSystemDualPersonaPartnersPrompt; // Dual-persona partner-style prompt
-

@@ -10,11 +10,7 @@ import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
-import {
-  BaseTool,
-  Icon,
-  ToolResult,
-} from './tools.js';
+import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 
@@ -55,7 +51,8 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
         properties: {
           command: {
             type: Type.STRING,
-            description: 'The Git subcommand to execute (e.g., "status", "add", "commit").',
+            description:
+              'The Git subcommand to execute (e.g., "status", "add", "commit").',
           },
           args: {
             type: Type.ARRAY,
@@ -64,7 +61,8 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
           },
           directory: {
             type: Type.STRING,
-            description: 'Optional: The directory in which to execute the Git command. Defaults to the current working directory.',
+            description:
+              'Optional: The directory in which to execute the Git command. Defaults to the current working directory.',
           },
           timeout: {
             type: Type.NUMBER,
@@ -74,7 +72,7 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
         required: ['command'],
       },
       false, // output is not markdown
-      true,  // can update output (streaming)
+      true, // can update output (streaming)
     );
   }
 
@@ -104,13 +102,15 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
 
   getDescription(params: GitToolParams): string {
     const argsString = params.args ? ` ${params.args.join(' ')}` : '';
-    const directoryString = params.directory ? ` in directory "${params.directory}"` : '';
+    const directoryString = params.directory
+      ? ` in directory "${params.directory}"`
+      : '';
     return `Executing Git command: "git ${params.command}${argsString}"${directoryString}`;
   }
 
   private killProcess(process: ChildProcess, pidOrPgid?: number): void {
     const isWindows = os.platform() === 'win32';
-    
+
     if (isWindows && process.pid) {
       try {
         spawn('taskkill', ['/t', '/f', '/pid', process.pid.toString()], {
@@ -138,28 +138,38 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<GitProcessResponse> {
     const startTime = Date.now();
-    console.log(`[GitTool] executeGitCommand started for command: ${params.command}`);
-    
+    console.log(
+      `[GitTool] executeGitCommand started for command: ${params.command}`,
+    );
+
     return new Promise<GitProcessResponse>((resolve) => {
       const commandArgs = [params.command, ...(params.args || [])];
-      
+
       console.log(`[GitTool] Spawning git with args:`, commandArgs);
       const isWindows = os.platform() === 'win32';
-      
+
       let gitProcess: ChildProcess;
-      
+
       let stdout = '';
       let stderr = '';
       let processEnded = false;
       let timeoutId: NodeJS.Timeout | null = null;
 
-      const endProcess = (success: boolean, exitCode: number | null = null, error?: string) => {
+      const endProcess = (
+        success: boolean,
+        exitCode: number | null = null,
+        error?: string,
+      ) => {
         if (processEnded) {
-          console.log(`[GitTool] endProcess called but process already ended. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`);
+          console.log(
+            `[GitTool] endProcess called but process already ended. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`,
+          );
           return;
         }
         processEnded = true;
-        console.log(`[GitTool] endProcess called. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`);
+        console.log(
+          `[GitTool] endProcess called. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`,
+        );
 
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -175,7 +185,7 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
           ...(error && { errorMessage: error }),
         });
       };
-      
+
       try {
         gitProcess = spawn('git', commandArgs, {
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -195,7 +205,9 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
       const timeout = params.timeout || GitTool.DEFAULT_TIMEOUT;
       timeoutId = setTimeout(() => {
         if (!processEnded) {
-          console.log(`[GitTool] Process timed out after ${timeout}ms. Killing process.`);
+          console.log(
+            `[GitTool] Process timed out after ${timeout}ms. Killing process.`,
+          );
           this.killProcess(gitProcess, gitProcess.pid);
           endProcess(false, null, `Process timed out after ${timeout}ms`);
         }
@@ -213,7 +225,9 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
       gitProcess.stdout?.on('data', (data) => {
         const chunk = data.toString();
         stdout += chunk;
-        console.log(`[GitTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[GitTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`,
+        );
         if (updateOutput) {
           updateOutput(chunk);
         }
@@ -222,7 +236,9 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
       gitProcess.stderr?.on('data', (data) => {
         const chunk = data.toString();
         stderr += chunk;
-        console.log(`[GitTool] STDERR chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[GitTool] STDERR chunk received: ${chunk.substring(0, 100)}...`,
+        );
       });
 
       gitProcess.on('close', (code) => {
@@ -256,10 +272,17 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
       };
     }
 
-    const processResponse = await this.executeGitCommand(params, signal, updateOutput);
+    const processResponse = await this.executeGitCommand(
+      params,
+      signal,
+      updateOutput,
+    );
 
     if (!processResponse.success) {
-      const errorMessage = processResponse.stderr || processResponse.errorMessage || 'Unknown error occurred';
+      const errorMessage =
+        processResponse.stderr ||
+        processResponse.errorMessage ||
+        'Unknown error occurred';
       return {
         llmContent: `Error executing Git command: ${errorMessage}`,
         returnDisplay: `❌ Git command failed: ${errorMessage}`,
@@ -283,10 +306,12 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
 
     let returnDisplay = `✅ Git command "git ${params.command}" executed successfully\n\n`;
     if (processResponse.stdout) {
-      returnDisplay += '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
+      returnDisplay +=
+        '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
     }
     if (processResponse.stderr) {
-      returnDisplay += '**STDERR:**\n```\n' + processResponse.stderr + '\n```\n';
+      returnDisplay +=
+        '**STDERR:**\n```\n' + processResponse.stderr + '\n```\n';
     }
     returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
     returnDisplay += `\n**Exit Code:** ${processResponse.exitCode}`;

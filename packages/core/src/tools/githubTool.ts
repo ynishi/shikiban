@@ -10,11 +10,7 @@ import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
-import {
-  BaseTool,
-  Icon,
-  ToolResult,
-} from './tools.js';
+import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 
@@ -42,10 +38,10 @@ interface GitHubProcessResponse {
 
 /**
  * Tool for executing GitHub CLI (gh) commands
- * 
+ *
  * This tool provides a safe and robust interface to execute GitHub CLI commands
  * with proper error handling, timeout support, and process management.
- * 
+ *
  * @example
  * ```typescript
  * const result = await github_tool('pr', ['list'], '/path/to/repo', 30000);
@@ -67,16 +63,19 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
         properties: {
           command: {
             type: Type.STRING,
-            description: 'The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo", "api").',
+            description:
+              'The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo", "api").',
           },
           args: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: 'An array of arguments to pass to the GitHub CLI subcommand.',
+            description:
+              'An array of arguments to pass to the GitHub CLI subcommand.',
           },
           directory: {
             type: Type.STRING,
-            description: 'Optional: The directory in which to execute the command. Defaults to the current working directory.',
+            description:
+              'Optional: The directory in which to execute the command. Defaults to the current working directory.',
           },
           timeout: {
             type: Type.NUMBER,
@@ -86,7 +85,7 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
         required: ['command'],
       },
       false, // output is not markdown
-      true,  // can update output (streaming)
+      true, // can update output (streaming)
     );
   }
 
@@ -114,13 +113,15 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
 
   getDescription(params: GitHubToolParams): string {
     const argsString = params.args ? ` ${params.args.join(' ')}` : '';
-    const directoryString = params.directory ? ` in directory "${params.directory}"` : '';
+    const directoryString = params.directory
+      ? ` in directory "${params.directory}"`
+      : '';
     return `Executing GitHub CLI command: "gh ${params.command}${argsString}"${directoryString}`;
   }
 
   private killProcess(process: ChildProcess, pidOrPgid?: number): void {
     const isWindows = os.platform() === 'win32';
-    
+
     if (isWindows && process.pid) {
       try {
         spawn('taskkill', ['/t', '/f', '/pid', process.pid.toString()], {
@@ -148,28 +149,38 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<GitHubProcessResponse> {
     const startTime = Date.now();
-    console.log(`[GitHubTool] executeGitHubCommand started for command: ${params.command}`);
-    
+    console.log(
+      `[GitHubTool] executeGitHubCommand started for command: ${params.command}`,
+    );
+
     return new Promise<GitHubProcessResponse>((resolve) => {
       const commandArgs = [params.command, ...(params.args || [])];
-      
+
       console.log(`[GitHubTool] Spawning gh with args:`, commandArgs);
       const isWindows = os.platform() === 'win32';
-      
+
       let ghProcess: ChildProcess;
-      
+
       let stdout = '';
       let stderr = '';
       let processEnded = false;
       let timeoutId: NodeJS.Timeout | null = null;
 
-      const endProcess = (success: boolean, exitCode: number | null = null, error?: string) => {
+      const endProcess = (
+        success: boolean,
+        exitCode: number | null = null,
+        error?: string,
+      ) => {
         if (processEnded) {
-          console.log(`[GitHubTool] endProcess called but process already ended. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`);
+          console.log(
+            `[GitHubTool] endProcess called but process already ended. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`,
+          );
           return;
         }
         processEnded = true;
-        console.log(`[GitHubTool] endProcess called. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`);
+        console.log(
+          `[GitHubTool] endProcess called. Success: ${success}, ExitCode: ${exitCode}, Error: ${error}`,
+        );
 
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -185,7 +196,7 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
           ...(error && { errorMessage: error }),
         });
       };
-      
+
       try {
         ghProcess = spawn('gh', commandArgs, {
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -198,14 +209,20 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
           },
         });
       } catch (err: any) {
-        endProcess(false, null, `Failed to spawn GitHub CLI process: ${err.message}`);
+        endProcess(
+          false,
+          null,
+          `Failed to spawn GitHub CLI process: ${err.message}`,
+        );
         return;
       }
 
       const timeout = params.timeout || GitHubTool.DEFAULT_TIMEOUT;
       timeoutId = setTimeout(() => {
         if (!processEnded) {
-          console.log(`[GitHubTool] Process timed out after ${timeout}ms. Killing process.`);
+          console.log(
+            `[GitHubTool] Process timed out after ${timeout}ms. Killing process.`,
+          );
           this.killProcess(ghProcess, ghProcess.pid);
           endProcess(false, null, `Process timed out after ${timeout}ms`);
         }
@@ -223,7 +240,9 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
       ghProcess.stdout?.on('data', (data) => {
         const chunk = data.toString();
         stdout += chunk;
-        console.log(`[GitHubTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[GitHubTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`,
+        );
         if (updateOutput) {
           updateOutput(chunk);
         }
@@ -232,7 +251,9 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
       ghProcess.stderr?.on('data', (data) => {
         const chunk = data.toString();
         stderr += chunk;
-        console.log(`[GitHubTool] STDERR chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[GitHubTool] STDERR chunk received: ${chunk.substring(0, 100)}...`,
+        );
       });
 
       ghProcess.on('close', (code) => {
@@ -244,7 +265,11 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
       ghProcess.on('error', (err) => {
         console.log(`[GitHubTool] Process 'error' event: ${err.message}`);
         signal.removeEventListener('abort', abortHandler);
-        endProcess(false, null, `Failed to spawn GitHub CLI process: ${err.message}`);
+        endProcess(
+          false,
+          null,
+          `Failed to spawn GitHub CLI process: ${err.message}`,
+        );
       });
     });
   }
@@ -266,10 +291,17 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
       };
     }
 
-    const processResponse = await this.executeGitHubCommand(params, signal, updateOutput);
+    const processResponse = await this.executeGitHubCommand(
+      params,
+      signal,
+      updateOutput,
+    );
 
     if (!processResponse.success) {
-      const errorMessage = processResponse.stderr || processResponse.errorMessage || 'Unknown error occurred';
+      const errorMessage =
+        processResponse.stderr ||
+        processResponse.errorMessage ||
+        'Unknown error occurred';
       return {
         llmContent: `Error executing GitHub CLI command: ${errorMessage}`,
         returnDisplay: `❌ GitHub CLI command failed: ${errorMessage}`,
@@ -293,10 +325,12 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
 
     let returnDisplay = `✅ GitHub CLI command "gh ${params.command}" executed successfully\n\n`;
     if (processResponse.stdout) {
-      returnDisplay += '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
+      returnDisplay +=
+        '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
     }
     if (processResponse.stderr) {
-      returnDisplay += '**STDERR:**\n```\n' + processResponse.stderr + '\n```\n';
+      returnDisplay +=
+        '**STDERR:**\n```\n' + processResponse.stderr + '\n```\n';
     }
     returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
     returnDisplay += `\n**Exit Code:** ${processResponse.exitCode}`;
@@ -311,21 +345,21 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
 
 /**
  * Executes a GitHub CLI (gh) command with the specified arguments
- * 
+ *
  * @param command - The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo")
  * @param args - Optional array of arguments to pass to the command
  * @param directory - Optional directory to execute the command in
  * @param timeout - Optional timeout in milliseconds (max 600000ms / 10 minutes)
  * @returns Promise resolving to command execution results including stdout, stderr, exit_code, signal, and error
- * 
+ *
  * @example
  * ```typescript
  * // List pull requests
  * const result = await github_tool('pr', ['list']);
- * 
+ *
  * // Create a new issue
  * const result = await github_tool('issue', ['create', '--title', 'Bug report', '--body', 'Description']);
- * 
+ *
  * // Use GitHub API directly
  * const result = await github_tool('api', ['/repos/owner/repo/releases']);
  * ```
@@ -344,5 +378,7 @@ export async function github_tool(
 }> {
   // This function would need to be implemented with access to the Config instance
   // In practice, this would be called through the tool registry system
-  throw new Error('github_tool function should be called through the tool registry system, not directly');
+  throw new Error(
+    'github_tool function should be called through the tool registry system, not directly',
+  );
 }

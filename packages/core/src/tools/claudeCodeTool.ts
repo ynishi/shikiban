@@ -8,14 +8,9 @@ import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
-import {
-  BaseTool,
-  Icon,
-  ToolResult,
-} from './tools.js';
+import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
-
 
 // Define the parameters for the ClaudeCodeTool
 export interface ClaudeCodeToolParams {
@@ -110,7 +105,7 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
         required: ['prompt'],
       },
       false, // output is not markdown
-      true,  // can update output (streaming)
+      true, // can update output (streaming)
     );
   }
 
@@ -138,7 +133,6 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
       }
     }
 
-
     return null;
   }
 
@@ -148,9 +142,10 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
    * @returns A string describing the tool's operation.
    */
   getDescription(params: ClaudeCodeToolParams): string {
-    const promptPreview = params.prompt.length > 200 
-      ? `${params.prompt.substring(0, 200)}...` 
-      : params.prompt;
+    const promptPreview =
+      params.prompt.length > 200
+        ? `${params.prompt.substring(0, 200)}...`
+        : params.prompt;
     return `Executing Claude Code with prompt: "${promptPreview}"`;
   }
 
@@ -161,7 +156,7 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
    */
   private killProcess(process: ChildProcess, pidOrPgid?: number): void {
     const isWindows = os.platform() === 'win32';
-    
+
     if (isWindows && process.pid) {
       // On Windows, use taskkill to terminate the process tree
       try {
@@ -169,7 +164,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
           stdio: 'ignore',
         });
       } catch (err) {
-        console.error(`[ClaudeCodeTool] Failed to kill Windows process: ${err}`);
+        console.error(
+          `[ClaudeCodeTool] Failed to kill Windows process: ${err}`,
+        );
         // Fallback to regular kill
         process.kill('SIGTERM');
       }
@@ -202,14 +199,23 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<ClaudeCodeProcessResponse> {
     const startTime = Date.now();
-    console.log(`[ClaudeCodeTool] executeClaudeCode started for prompt: ${params.prompt.substring(0, 50)}...`);
-    
+    console.log(
+      `[ClaudeCodeTool] executeClaudeCode started for prompt: ${params.prompt.substring(0, 50)}...`,
+    );
+
     return new Promise<ClaudeCodeProcessResponse>((resolve) => {
-      const args = ['-p', params.prompt, '--output-format', 'json', '--permission-mode', 'acceptEdits'];
+      const args = [
+        '-p',
+        params.prompt,
+        '--output-format',
+        'json',
+        '--permission-mode',
+        'acceptEdits',
+      ];
       if (params.continue) {
         args.push('--continue');
       }
-      
+
       console.log(`[ClaudeCodeTool] Spawning command`, args);
       const isWindows = os.platform() === 'win32';
       // Spawn the Claude process with the single command string and shell: true
@@ -233,11 +239,15 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
       // Helper function to end the process
       const endProcess = (success: boolean, error?: string) => {
         if (processEnded) {
-          console.log(`[ClaudeCodeTool] endProcess called but process already ended. Success: ${success}, Error: ${error}`);
+          console.log(
+            `[ClaudeCodeTool] endProcess called but process already ended. Success: ${success}, Error: ${error}`,
+          );
           return;
         }
         processEnded = true;
-        console.log(`[ClaudeCodeTool] endProcess called. Success: ${success}, Error: ${error}`);
+        console.log(
+          `[ClaudeCodeTool] endProcess called. Success: ${success}, Error: ${error}`,
+        );
 
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -256,7 +266,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
       const timeout = params.timeout || ClaudeCodeTool.DEFAULT_TIMEOUT;
       timeoutId = setTimeout(() => {
         if (!processEnded) {
-          console.log(`[ClaudeCodeTool] Process timed out after ${timeout}ms. Killing process.`);
+          console.log(
+            `[ClaudeCodeTool] Process timed out after ${timeout}ms. Killing process.`,
+          );
           this.killProcess(claudeProcess, claudeProcess.pid);
           endProcess(false, `Process timed out after ${timeout}ms`);
         }
@@ -276,7 +288,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
       claudeProcess.stdout?.on('data', (data) => {
         const chunk = data.toString();
         stdout += chunk;
-        console.log(`[ClaudeCodeTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[ClaudeCodeTool] STDOUT chunk received: ${chunk.substring(0, 100)}...`,
+        );
         if (updateOutput) {
           updateOutput(chunk);
         }
@@ -286,7 +300,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
       claudeProcess.stderr?.on('data', (data) => {
         const chunk = data.toString();
         stderr += chunk;
-        console.log(`[ClaudeCodeTool] STDERR chunk received: ${chunk.substring(0, 100)}...`);
+        console.log(
+          `[ClaudeCodeTool] STDERR chunk received: ${chunk.substring(0, 100)}...`,
+        );
       });
 
       // Handle process close
@@ -348,7 +364,11 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
     }
 
     // Execute Claude Code
-    const processResponse = await this.executeClaudeCode(params, signal, updateOutput);
+    const processResponse = await this.executeClaudeCode(
+      params,
+      signal,
+      updateOutput,
+    );
 
     // Handle execution failure
     if (!processResponse.success) {
@@ -378,16 +398,20 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
 
     // Create a user-friendly summary
     let returnDisplay = '✅ Claude Code executed successfully\n\n';
-    
+
     // Use type guard to check if parsing failed
     if (this.isRawOutput(parsedOutput)) {
       // If parsing failed, show raw output
-      returnDisplay += '**Raw Output:**\n```\n' + parsedOutput.rawOutput + '\n```\n';
+      returnDisplay +=
+        '**Raw Output:**\n```\n' + parsedOutput.rawOutput + '\n```\n';
     } else {
       // If parsing succeeded, format the output nicely
-      returnDisplay += '**Result:**\n```json\n' + JSON.stringify(parsedOutput, null, 2) + '\n```\n';
+      returnDisplay +=
+        '**Result:**\n```json\n' +
+        JSON.stringify(parsedOutput, null, 2) +
+        '\n```\n';
     }
-    
+
     returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
 
     return {
@@ -402,7 +426,9 @@ export class ClaudeCodeTool extends BaseTool<ClaudeCodeToolParams, ToolResult> {
    * @param output The parsed output to check.
    * @returns True if the output is a raw output, false otherwise.
    */
-  private isRawOutput(output: ParsedClaudeOutput): output is ClaudeCodeRawOutput {
+  private isRawOutput(
+    output: ParsedClaudeOutput,
+  ): output is ClaudeCodeRawOutput {
     return 'rawOutput' in output;
   }
 }

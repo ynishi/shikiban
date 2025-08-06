@@ -32,7 +32,10 @@ export interface IntelligentReadToolParams {
 /**
  * Implementation of the IntelligentRead tool logic
  */
-export class IntelligentReadTool extends BaseTool<IntelligentReadToolParams, ToolResult> {
+export class IntelligentReadTool extends BaseTool<
+  IntelligentReadToolParams,
+  ToolResult
+> {
   static readonly Name: string = 'intelligent_read';
 
   constructor(private config: Config) {
@@ -112,12 +115,12 @@ export class IntelligentReadTool extends BaseTool<IntelligentReadToolParams, Too
         if (!workspaceContext.isPathWithinWorkspace(absolutePath)) {
           return false;
         }
-        
+
         const fileService = this.config.getFileService();
         if (fileService.shouldGeminiIgnoreFile(absolutePath)) {
           return false;
         }
-        
+
         // Try to read just to check if file exists
         const result = await processSingleFileContent(
           absolutePath,
@@ -171,15 +174,17 @@ export class IntelligentReadTool extends BaseTool<IntelligentReadToolParams, Too
       // Filter files within workspace and not ignored
       const workspaceContext = this.config.getWorkspaceContext();
       const fileService = this.config.getFileService();
-      const validFiles = matchingFiles.filter(file => 
-        workspaceContext.isPathWithinWorkspace(file) &&
-        !fileService.shouldGeminiIgnoreFile(file)
+      const validFiles = matchingFiles.filter(
+        (file) =>
+          workspaceContext.isPathWithinWorkspace(file) &&
+          !fileService.shouldGeminiIgnoreFile(file),
       );
 
       if (validFiles.length === 1) {
         filePath = validFiles[0];
       } else if (validFiles.length > 1) {
-        let output = '複数のファイルが見つかりました。上位10件のファイルの先頭20行を表示します:\n\n';
+        let output =
+          '複数のファイルが見つかりました。上位10件のファイルの先頭20行を表示します:\n\n';
         const filesToRead = validFiles.slice(0, 10);
 
         for (const file of filesToRead) {
@@ -231,7 +236,11 @@ export class IntelligentReadTool extends BaseTool<IntelligentReadToolParams, Too
       );
 
       const fullContent = result.llmContent || '';
-      const first10Lines = fullContent.toString().split('\n').slice(0, 10).join('\n');
+      const first10Lines = fullContent
+        .toString()
+        .split('\n')
+        .slice(0, 10)
+        .join('\n');
       summary = `Read file: ${filePath}`;
       return {
         llmContent: fullContent,
