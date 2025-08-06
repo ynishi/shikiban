@@ -26,8 +26,9 @@ import { Config, ApprovalMode } from '../config/config.js';
 import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ReadFileTool } from './read-file.js';
-import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
+import { ModifiableDeclarativeTool, ModifyContext } from './modifiable-tool.js';
 import { ReplacementMetrics } from './replacementMetrics.js';
+import { IDEConnectionStatus } from '../ide/ide-client.js';
 
 /**
  * Parameters for the Edit tool
@@ -79,7 +80,7 @@ interface CalculatedEdit {
  */
 export class EditTool
   extends BaseTool<EditToolParams, ToolResult>
-  implements ModifiableTool<EditToolParams>
+  implements ModifiableDeclarativeTool<EditToolParams>
 {
   static readonly Name = 'replace';
 
@@ -204,7 +205,9 @@ Expectation for required parameters:
           break; // Exit after replacing the target
         } else {
           // For non-target occurrences, just add the part and the oldString itself
-          parts.push(currentContent.substring(currentPos, matchIndex + oldString.length));
+          parts.push(
+            currentContent.substring(currentPos, matchIndex + oldString.length),
+          );
           currentPos = matchIndex + oldString.length;
         }
         count++;
@@ -318,7 +321,8 @@ Expectation for required parameters:
         };
       } else if (!replacementMetrics.isValidTargetIndex) {
         error = {
-          display: replacementMetrics.getErrorMessageForTargetIndexOutOfBounds(),
+          display:
+            replacementMetrics.getErrorMessageForTargetIndexOutOfBounds(),
           raw: replacementMetrics.getErrorMessageForTargetIndexOutOfBounds(),
           type: ToolErrorType.EDIT_EXPECTED_OCCURRENCE_MISMATCH,
         };
@@ -328,7 +332,9 @@ Expectation for required parameters:
           raw: replacementMetrics.getErrorMessageForMultipleMatches(),
           type: ToolErrorType.EDIT_EXPECTED_OCCURRENCE_MISMATCH,
         };
-      } else if (replacementMetrics.actualReplacementsCount !== expectedReplacements) {
+      } else if (
+        replacementMetrics.actualReplacementsCount !== expectedReplacements
+      ) {
         // This covers cases where expectedReplacements is > 1 but actualReplacementsCount is different
         error = {
           display: replacementMetrics.getErrorMessageForMismatch(),
@@ -416,10 +422,19 @@ Expectation for required parameters:
       'Proposed',
       DEFAULT_DIFF_OPTIONS,
     );
+    const ideClient = this.config.getIdeClient();
+    const ideConfirmation =
+      this.config.getIdeModeFeature() &&
+      this.config.getIdeMode() &&
+      ideClient?.getConnectionStatus().status === IDEConnectionStatus.Connected
+        ? ideClient.openDiff(params.file_path, editData.newContent)
+        : undefined;
+
     const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
       title: `Confirm Edit: ${shortenPath(makeRelative(params.file_path, this.config.getTargetDir()))}`,
       fileName,
+      filePath: params.file_path,
       fileDiff,
       originalContent: editData.currentContent,
       newContent: editData.newContent,
@@ -427,7 +442,18 @@ Expectation for required parameters:
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
+
+        if (ideConfirmation) {
+          const result = await ideConfirmation;
+          if (result.status === 'accepted' && result.content) {
+            // TODO(chrstn): See https://github.com/google-gemini/gemini-cli/pull/5618#discussion_r2255413084
+            // for info on a possible race condition where the file is modified on disk while being edited.
+            params.old_string = editData.currentContent ?? '';
+            params.new_string = result.content;
+          }
+        }
       },
+      ideConfirmation,
     };
     return confirmationDetails;
   }

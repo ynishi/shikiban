@@ -8,8 +8,14 @@ import path from 'path';
 import { glob } from 'glob';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
-import { BaseTool, Icon, ToolLocation, ToolResult } from './tools.js';
-import { Type } from '@google/genai';
+import {
+  BaseDeclarativeTool,
+  Icon,
+  ToolInvocation,
+  ToolLocation,
+  ToolResult,
+} from './tools.js';
+import { PartUnion, Type } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
@@ -40,23 +46,103 @@ export interface ReadFileToolParams {
   limit?: number;
 }
 
+class ReadFileToolInvocation
+  implements ToolInvocation<ReadFileToolParams, ToolResult>
+{
+  constructor(
+    private config: Config,
+    public params: ReadFileToolParams,
+  ) {}
+
+  getDescription(): string {
+    const relativePath = makeRelative(
+      this.params.pathHint,
+      this.config.getTargetDir(),
+    );
+    return shortenPath(relativePath);
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [{ path: this.params.pathHint, line: this.params.offset }];
+  }
+
+  shouldConfirmExecute(): Promise<false> {
+    return Promise.resolve(false);
+  }
+
+  async execute(): Promise<ToolResult> {
+    const result = await processSingleFileContent(
+      this.params.pathHint,
+      this.config.getTargetDir(),
+      this.params.offset,
+      this.params.limit,
+    );
+
+    if (result.error) {
+      return {
+        llmContent: result.error, // The detailed error for LLM
+        returnDisplay: result.returnDisplay || 'Error reading file', // User-friendly error
+      };
+    }
+
+    let llmContent: PartUnion;
+    if (result.isTruncated) {
+      const [start, end] = result.linesShown!;
+      const total = result.originalLineCount!;
+      const nextOffset = this.params.offset
+        ? this.params.offset + end - start + 1
+        : end;
+      llmContent = `
+IMPORTANT: The file content has been truncated.
+Status: Showing lines ${start}-${end} of ${total} total lines.
+Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to read the next section of the file, use offset: ${nextOffset}.
+
+--- FILE CONTENT (truncated) ---
+${result.llmContent}`;
+    } else {
+      llmContent = result.llmContent || '';
+    }
+
+    const lines =
+      typeof result.llmContent === 'string'
+        ? result.llmContent.split('\n').length
+        : undefined;
+    const mimetype = getSpecificMimeType(this.params.pathHint);
+    recordFileOperationMetric(
+      this.config,
+      FileOperation.READ,
+      lines,
+      mimetype,
+      path.extname(this.params.pathHint),
+    );
+
+    return {
+      llmContent,
+      returnDisplay: result.returnDisplay || '',
+    };
+  }
+}
+
 /**
  * Implementation of the ReadFile tool logic
  */
-export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
+export class ReadFileTool extends BaseDeclarativeTool<
+  ReadFileToolParams,
+  ToolResult
+> {
   static readonly Name: string = 'read_file';
 
   constructor(private config: Config) {
     super(
       ReadFileTool.Name,
       'ReadFile',
-      'Reads and returns the content of a specified file from the local filesystem. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), and PDF files. For text files, it can read specific line ranges.',
+      `Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'offset' and 'limit' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), and PDF files. For text files, it can read specific line ranges.`,
       Icon.FileSearch,
       {
         properties: {
           pathHint: {
             description:
-              "A partial path, relative path, or absolute path to the file.",
+              'A partial path, relative path, or absolute path to the file.',
             type: Type.STRING,
           },
           offset: {
@@ -76,7 +162,13 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     );
   }
 
-  validateToolParams(params: ReadFileToolParams): string | null {
+  protected createInvocation(
+    params: ReadFileToolParams,
+  ): ToolInvocation<ReadFileToolParams, ToolResult> {
+    return new ReadFileToolInvocation(this.config, params);
+  }
+
+  protected validateToolParams(params: ReadFileToolParams): string | null {
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;
@@ -164,7 +256,10 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
 
     // 1. Check as @project-root relative path
     if (pathHint.startsWith('@')) {
-      const projectRootRelativePath = path.join(projectRoot, pathHint.substring(1));
+      const projectRootRelativePath = path.join(
+        projectRoot,
+        pathHint.substring(1),
+      );
       const exists = await tryResolveFile(projectRootRelativePath);
       if (exists) {
         filePath = projectRootRelativePath;
