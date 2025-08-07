@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as Diff from 'diff';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Icon,
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
@@ -36,19 +37,57 @@ export function applyReplacement(
   oldString: string,
   newString: string,
   isNewFile: boolean,
+  targetOccurrenceIndex?: number,
 ): string {
   if (isNewFile) {
     return newString;
   }
   if (currentContent === null) {
-    // Should not happen if not a new file, but defensively return empty or newString if oldString is also empty
     return oldString === '' ? newString : '';
   }
-  // If oldString is empty and it's not a new file, do not modify the content.
   if (oldString === '' && !isNewFile) {
     return currentContent;
   }
-  return currentContent.replaceAll(oldString, newString);
+
+  if (targetOccurrenceIndex !== undefined) {
+    const parts: string[] = [];
+    let currentPos = 0;
+    let count = 0;
+    let foundTarget = false;
+
+    let matchIndex = currentContent.indexOf(oldString, currentPos);
+    while (matchIndex !== -1) {
+      if (count === targetOccurrenceIndex) {
+        // Add the part before the target occurrence
+        parts.push(currentContent.substring(currentPos, matchIndex));
+        // Add the new string
+        parts.push(newString);
+        // Move currentPos past the replaced oldString
+        currentPos = matchIndex + oldString.length;
+        foundTarget = true;
+        break; // Exit after replacing the target
+      } else {
+        // For non-target occurrences, just add the part and the oldString itself
+        parts.push(
+          currentContent.substring(currentPos, matchIndex + oldString.length),
+        );
+        currentPos = matchIndex + oldString.length;
+      }
+      count++;
+      matchIndex = currentContent.indexOf(oldString, currentPos);
+    }
+
+    if (foundTarget) {
+      // Add any remaining content after the target replacement
+      parts.push(currentContent.substring(currentPos));
+      return parts.join('');
+    } else {
+      // If targetOccurrenceIndex not found (e.g., out of bounds), return original
+      return currentContent;
+    }
+  } else {
+    return currentContent.replaceAll(oldString, newString);
+  }
 }
 
 /**
@@ -99,7 +138,7 @@ interface CalculatedEdit {
 class EditToolInvocation extends BaseToolInvocation<EditToolParams, ToolResult> {
   constructor(
     private readonly config: Config, 
-    params: EditToolParams,
+    public params: EditToolParams,
   ) {
     super(params);
   }
@@ -112,63 +151,7 @@ class EditToolInvocation extends BaseToolInvocation<EditToolParams, ToolResult> 
     return [{ path: this.params.file_path }];
   }
 
-  private _applyReplacement(
-    currentContent: string | null,
-    oldString: string,
-    newString: string,
-    isNewFile: boolean,
-    targetOccurrenceIndex?: number,
-  ): string {
-    if (isNewFile) {
-      return newString;
-    }
-    if (currentContent === null) {
-      return oldString === '' ? newString : '';
-    }
-    if (oldString === '' && !isNewFile) {
-      return currentContent;
-    }
-
-    if (targetOccurrenceIndex !== undefined) {
-      const parts: string[] = [];
-      let currentPos = 0;
-      let count = 0;
-      let foundTarget = false;
-
-      let matchIndex = currentContent.indexOf(oldString, currentPos);
-      while (matchIndex !== -1) {
-        if (count === targetOccurrenceIndex) {
-          // Add the part before the target occurrence
-          parts.push(currentContent.substring(currentPos, matchIndex));
-          // Add the new string
-          parts.push(newString);
-          // Move currentPos past the replaced oldString
-          currentPos = matchIndex + oldString.length;
-          foundTarget = true;
-          break; // Exit after replacing the target
-        } else {
-          // For non-target occurrences, just add the part and the oldString itself
-          parts.push(
-            currentContent.substring(currentPos, matchIndex + oldString.length),
-          );
-          currentPos = matchIndex + oldString.length;
-        }
-        count++;
-        matchIndex = currentContent.indexOf(oldString, currentPos);
-      }
-
-      if (foundTarget) {
-        // Add any remaining content after the target replacement
-        parts.push(currentContent.substring(currentPos));
-        return parts.join('');
-      } else {
-        // If targetOccurrenceIndex not found (e.g., out of bounds), return original
-        return currentContent;
-      }
-    } else {
-      return currentContent.replaceAll(oldString, newString);
-    }
-  }
+  
 
   /**
    * Calculates the potential outcome of an edit operation.
@@ -306,7 +289,7 @@ class EditToolInvocation extends BaseToolInvocation<EditToolParams, ToolResult> 
       );
     }
 
-    const newContent = this._applyReplacement(
+    const newContent = applyReplacement(
       currentContent,
       finalOldString,
       finalNewString,
