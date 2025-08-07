@@ -10,6 +10,7 @@ import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Icon,
   ToolInvocation,
   ToolLocation,
@@ -46,13 +47,16 @@ export interface ReadFileToolParams {
   limit?: number;
 }
 
-class ReadFileToolInvocation
-  implements ToolInvocation<ReadFileToolParams, ToolResult>
-{
+class ReadFileToolInvocation extends BaseToolInvocation<
+  ReadFileToolParams,
+  ToolResult
+> {
   constructor(
     private config: Config,
-    public params: ReadFileToolParams,
-  ) {}
+    params: ReadFileToolParams,
+  ) {
+    super(params);
+  }
 
   getDescription(): string {
     const relativePath = makeRelative(
@@ -64,10 +68,6 @@ class ReadFileToolInvocation
 
   toolLocations(): ToolLocation[] {
     return [{ path: this.params.pathHint, line: this.params.offset }];
-  }
-
-  shouldConfirmExecute(): Promise<false> {
-    return Promise.resolve(false);
   }
 
   async execute(): Promise<ToolResult> {
