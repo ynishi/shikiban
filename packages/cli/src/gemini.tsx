@@ -45,6 +45,7 @@ import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 import { checkForUpdates } from './ui/utils/updateCheck.js';
 import { handleAutoUpdate } from './utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from './utils/events.js';
+import { ChatDetail, getSavedChatTags } from './ui/commands/chatCommand.js';
 
 export function validateDnsResolutionOrder(
   order: string | undefined,
@@ -266,8 +267,34 @@ export async function main() {
     ...(await getUserStartupWarnings(workspaceRoot)),
   ];
 
-  const shouldBeInteractive =
-    !!argv.promptInteractive || (process.stdin.isTTY && input?.length === 0);
+  if (argv.chatList) {
+    // We need to pass a CommandContext-like object to getSavedChatTags.
+    // For simplicity, we're creating a minimal one with just the config service.
+    // A more robust solution might involve refactoring getSavedChatTags to accept
+    // a more generic config object, or creating a proper context builder.
+    const chatDetails = await getSavedChatTags({ services: { config } } as any, false);
+    if (chatDetails.length === 0) {
+      console.log('No saved conversation checkpoints found.');
+    } else {
+      const maxNameLength = Math.max(
+        ...chatDetails.map((chat) => chat.name.length),
+      );
+
+      let message = 'List of saved conversations:\n\n';
+      for (const chat of chatDetails) {
+        const paddedName = chat.name.padEnd(maxNameLength, ' ');
+        const isoString = chat.mtime.toISOString();
+        const match = isoString.match(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
+        const formattedDate = match ? `${match[1]} ${match[2]}` : 'Invalid Date';
+        message += `  - \u001b[36m${paddedName}\u001b[0m  \u001b[90m(saved on ${formattedDate})\u001b[0m\n`;
+      }
+      message += `\n\u001b[90mNote: Newest last, oldest first\u001b[0m`;
+      console.log(message);
+    }
+    process.exit(0);
+  }
+
+  const shouldBeInteractive =    !!argv.promptInteractive || (process.stdin.isTTY && input?.length === 0);
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (shouldBeInteractive) {

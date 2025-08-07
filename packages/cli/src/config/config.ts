@@ -68,6 +68,7 @@ export interface CliArgs {
   includeDirectories: string[] | undefined;
   noSelfIntroduce?: boolean;
   loadMemoryFromIncludeDirectories: boolean | undefined;
+  chatList: boolean | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -222,10 +223,20 @@ export async function parseArguments(): Promise<CliArgs> {
             'If true, when refreshing memory, GEMINI.md files should be loaded from all directories that are added. If false, GEMINI.md files should only be loaded from the primary working directory.',
           default: false,
         })
+        .option('chat-list', {
+          type: 'boolean',
+          description: 'List all saved conversation checkpoints and exit.',
+        })
         .check((argv) => {
           if (argv.prompt && argv.promptInteractive) {
             throw new Error(
               'Cannot use both --prompt (-p) and --prompt-interactive (-i) together',
+            );
+          }
+          // New exclusive check for chat options
+          if (argv.chatList && (argv.prompt || argv.promptInteractive)) {
+            throw new Error(
+              'Cannot use --chat-list with --prompt or --prompt-interactive.'
             );
           }
           return true;
