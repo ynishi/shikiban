@@ -14,12 +14,12 @@ import {
 import path from 'path';
 import { HistoryItemWithoutId, MessageType } from '../types.js';
 
-interface ChatDetail {
+export interface ChatDetail {
   name: string;
   mtime: Date;
 }
 
-const getSavedChatTags = async (
+export const getSavedChatTags = async (
   context: CommandContext,
   mtSortDesc: boolean,
 ): Promise<ChatDetail[]> => {
