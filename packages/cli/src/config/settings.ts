@@ -67,6 +67,10 @@ export interface AccessibilitySettings {
 export interface Settings {
   theme?: string;
   customThemes?: Record<string, CustomTheme>;
+  filewatchEnable?: boolean;
+  watchDir?: string;
+  webSocketEnabled?: boolean;
+  webSocketUrl?: string;
   selectedAuthType?: AuthType;
   useExternalAuth?: boolean;
   sandbox?: boolean | string;

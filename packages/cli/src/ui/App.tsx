@@ -17,6 +17,9 @@ import {
   type Key as InkKeyType,
 } from 'ink';
 import { StreamingState, type HistoryItem, MessageType } from './types.js';
+import { fileWatcherService } from '../services/fileWatcherService.js';
+import { webSocketSubscriberService } from '../services/webSocketSubscriberService.js';
+import { internalEventBus, InternalEvent } from '../utils/internalEventBus.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import os from 'node:os';
@@ -144,6 +147,72 @@ const App = ({
     const cleanup = setUpdateHandler(addItem, setUpdateInfo);
     return cleanup;
   }, [addItem]);
+
+  // File Watcher Integration
+  useEffect(() => {
+    const filewatchEnabled = settings.merged.filewatchEnable ?? true; // Default to true if not specified
+    const watchPath = settings.merged.watchDir || workspaceRoot || process.cwd();
+
+    fileWatcherService.startWatching({ path: watchPath, enabled: filewatchEnabled });
+
+    const handleFileChange = (event: { type: string; path: string }) => {
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: `File ${event.path} has been ${event.type}d.`,
+        },
+        Date.now(),
+      );
+    };
+
+    internalEventBus.on(InternalEvent.FILE_CHANGED, handleFileChange);
+
+    return () => {
+      fileWatcherService.stopWatching();
+      internalEventBus.off(InternalEvent.FILE_CHANGED, handleFileChange);
+    };
+  }, [addItem, workspaceRoot]);
+
+  // WebSocket Subscriber Integration
+  useEffect(() => {
+    const webSocketEnabled = settings.merged.webSocketEnabled ?? false; // Default to false
+    const webSocketUrl = settings.merged.webSocketUrl;
+
+    if (webSocketUrl) {
+      webSocketSubscriberService.start({ url: webSocketUrl, enabled: webSocketEnabled });
+    } else if (webSocketEnabled) {
+      console.warn('WebSocket subscription is enabled but no URL is provided in settings.');
+    }
+
+    const handleWebSocketMessage = (event: { url: string; data: unknown }) => {
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: `WebSocket message from ${event.url}: ${String(event.data)}`,
+        },
+        Date.now(),
+      );
+    };
+
+    const handleWebSocketError = (event: { url: string; error: unknown }) => {
+      addItem(
+        {
+          type: MessageType.ERROR,
+          text: `WebSocket error from ${event.url}: ${String(event.error)}`,
+        },
+        Date.now(),
+      );
+    };
+
+    internalEventBus.on(InternalEvent.WEBSOCKET_MESSAGE, handleWebSocketMessage);
+    internalEventBus.on(InternalEvent.WEBSOCKET_ERROR, handleWebSocketError);
+
+    return () => {
+      webSocketSubscriberService.stop();
+      internalEventBus.off(InternalEvent.WEBSOCKET_MESSAGE, handleWebSocketMessage);
+      internalEventBus.off(InternalEvent.WEBSOCKET_ERROR, handleWebSocketError);
+    };
+  }, [addItem, settings.merged.webSocketEnabled, settings.merged.webSocketUrl]);
 
   const {
     consoleMessages,
