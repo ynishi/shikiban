@@ -81,7 +81,7 @@ export class IntelligentEditTool
     super(
       IntelligentEditTool.Name,
       'Intelligent Edit',
-      `Intelligently replaces text in a file, using a lightweight LLM to correct for minor formatting changes in the old_string.`,
+      `[DEPRECATED] This tool is deprecated in favor of using claude_code for more flexible and powerful code generation and modification. Intelligently replaces text in a file, using a lightweight LLM to correct for minor formatting changes in the old_string.`,
       Icon.Pencil,
       {
         properties: {

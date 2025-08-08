@@ -1,5 +1,7 @@
 # Intelligent Read Tool
 
+**Note:** The `intelligent_replace` tool referenced in this project has been deprecated. Use `claude_code` as an alternative for intelligent file editing operations.
+
 ## Overview
 
 The `intelligent-read` tool provides a more flexible and intelligent way to read file content compared to the standard `read_file` tool. It aims to enhance the AI's ability to locate and read files by accepting partial paths, relative paths, or just file names, and intelligently resolving them to an absolute path.

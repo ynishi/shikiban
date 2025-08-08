@@ -37,7 +37,7 @@ const memoryToolSchemaData: FunctionDeclaration = {
   },
 };
 
-const memoryToolDescription = `
+const memoryToolDescription = `[DEPRECATED] This tool is deprecated in favor of using LivingMemory (liv-mcp) for long-term memory storage. 
 Saves a specific piece of information or fact to your long-term memory.
 
 Use this tool:

@@ -1,5 +1,7 @@
 # Memory Tool (`save_memory`)
 
+> **⚠️ DEPRECATED**: The `save_memory` tool has been deprecated. This documentation is preserved for historical reference. Please use alternative memory management approaches.
+
 This document describes the `save_memory` tool for the Gemini CLI.
 
 ## Description
