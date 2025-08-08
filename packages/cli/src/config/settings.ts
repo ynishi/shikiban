@@ -148,6 +148,7 @@ export interface Settings {
   friendlyIntroduction?: boolean;
   introductionMode?: 'initial' | 'returning';
   chatCompression?: ChatCompressionSettings;
+  showLineNumbers?: boolean;
 }
 
 export interface SettingsError {

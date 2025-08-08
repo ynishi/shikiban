@@ -42,6 +42,7 @@ import { checkForUpdates } from './ui/utils/updateCheck.js';
 import { handleAutoUpdate } from './utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from './utils/events.js';
 import { ChatDetail, getSavedChatTags } from './ui/commands/chatCommand.js';
+import { SettingsContext } from './ui/contexts/SettingsContext.js';
 
 export function validateDnsResolutionOrder(
   order: string | undefined,
@@ -298,14 +299,16 @@ export async function main() {
     setWindowTitle(basename(workspaceRoot), settings);
     const instance = render(
       <React.StrictMode>
-        <AppWrapper
-          config={config}
-          settings={settings}
-          startupWarnings={startupWarnings}
-          version={version}
-          noSelfIntroduce={argv.noSelfIntroduce}
-          workspaceRoot={workspaceRoot}
-        />
+        <SettingsContext.Provider value={settings}>
+          <AppWrapper
+            config={config}
+            settings={settings}
+            startupWarnings={startupWarnings}
+            version={version}
+            noSelfIntroduce={argv.noSelfIntroduce}
+            workspaceRoot={workspaceRoot}
+          />
+        </SettingsContext.Provider>
       </React.StrictMode>,
       { exitOnCtrlC: false },
     );
