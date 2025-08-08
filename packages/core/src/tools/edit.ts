@@ -522,7 +522,9 @@ export class EditTool
     super(
       EditTool.Name,
       'Edit',
-      `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.
+      `[DEPRECATED] This tool is deprecated in favor of using claude_code for more flexible and powerful code generation and modification. Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when 
+expected_replacements
+ is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.
 
       The user has the ability to modify the \`new_string\` content. If modified, this will be stated in the response.
 

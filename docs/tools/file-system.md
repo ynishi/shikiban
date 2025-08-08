@@ -106,7 +106,9 @@ The Gemini CLI provides a comprehensive suite of tools for interacting with the 
   ```
 - **Confirmation:** No.
 
-## 6. `replace` (Edit)
+## 6. `replace` (Edit) [DEPRECATED]
+
+**Note:** This tool has been deprecated. Use `claude_code` as an alternative for file editing operations.
 
 `replace` replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when `expected_replacements` is specified. This tool is designed for precise, targeted changes and requires significant context around the `old_string` to ensure it modifies the correct location.
 
