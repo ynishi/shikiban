@@ -27,6 +27,7 @@ import {
   EditTool,
   WriteFileTool,
   MCPServerConfig,
+  getCoreSystemPrompt,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -73,6 +74,9 @@ export interface CliArgs {
   noSelfIntroduce?: boolean;
   loadMemoryFromIncludeDirectories: boolean | undefined;
   chatList: boolean | undefined;
+  systemPrompt?: string;
+  systemPromptFile?: string;
+  skipMemory?: boolean;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -230,6 +234,19 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('chat-list', {
           type: 'boolean',
           description: 'List all saved conversation checkpoints and exit.',
+        })
+        .option('system-prompt', {
+          type: 'string',
+          description: 'Override the default system prompt',
+        })
+        .option('system-prompt-file', {
+          type: 'string',
+          description: 'Read system prompt from a file to override',
+        })
+        .option('skip-memory', {
+          type: 'boolean',
+          description: 'Do not load any memory from GEMINI.md files.',
+          default: false,
         })
         .check((argv) => {
           if (argv.prompt && argv.promptInteractive) {
@@ -464,16 +481,42 @@ export async function loadCliConfig(
     .concat((argv.includeDirectories || []).map(resolvePath));
 
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
-  const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
-    process.cwd(),
-    settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
-    debugMode,
-    fileService,
-    settings,
-    extensionContextFilePaths,
-    memoryImportFormat,
-    fileFiltering,
-  );
+  let memoryContent: string;
+  let fileCount: number;
+  
+  if (argv.skipMemory) {
+    memoryContent = '';
+    fileCount = 0;
+  } else {
+    const result = await loadHierarchicalGeminiMemory(
+      process.cwd(),
+      settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
+      debugMode,
+      fileService,
+      settings,
+      extensionContextFilePaths,
+      memoryImportFormat,
+      fileFiltering,
+    );
+    memoryContent = result.memoryContent;
+    fileCount = result.fileCount;
+  }
+
+  // Determine the base system prompt based on priority
+  let baseSystemPrompt: string;
+  
+  if (argv.systemPrompt) {
+    baseSystemPrompt = argv.systemPrompt;
+  } else if (argv.systemPromptFile) {
+    try {
+      baseSystemPrompt = fs.readFileSync(argv.systemPromptFile, 'utf-8');
+    } catch (error) {
+      console.error(`Error reading system prompt file: ${argv.systemPromptFile}`);
+      process.exit(4);
+    }
+  } else {
+    baseSystemPrompt = getCoreSystemPrompt();
+  }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
   const question = argv.promptInteractive || argv.prompt || '';
@@ -543,6 +586,7 @@ export async function loadCliConfig(
     mcpServerCommand: settings.mcpServerCommand,
     mcpServers,
     userMemory: memoryContent,
+    systemPrompt: baseSystemPrompt,
     geminiMdFileCount: fileCount,
     approvalMode,
     showMemoryUsage:

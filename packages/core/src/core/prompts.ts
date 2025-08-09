@@ -19,7 +19,12 @@ import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
 
-export function getCoreSystemPromptOriginal(userMemory?: string): string {
+export function getCoreSystemPromptOriginal(options?: { userMemory?: string; systemPrompt?: string }): string {
+  if (options?.systemPrompt) {
+    const memorySuffix = options.userMemory && options.userMemory.trim().length > 0 ? `\n\n---\n\n${options.userMemory.trim()}` : '';
+    return `${options.systemPrompt}${memorySuffix}`;
+  }
+  
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .gemini/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -288,8 +293,8 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
   }
 
   const memorySuffix =
-    userMemory && userMemory.trim().length > 0
-      ? `\n\n---\n\n${userMemory.trim()}`
+    options?.userMemory && options.userMemory.trim().length > 0
+      ? `\n\n---\n\n${options.userMemory.trim()}`
       : '';
 
   return `${basePrompt}${memorySuffix}`;
@@ -309,7 +314,12 @@ Example: "Yes, proceed. Also, please read /docs/coding_standards.md and /configs
 /**
  * Provides the partner-style system prompt emphasizing collaboration and quality.
  */
-export function getCoreSystemPartnerPrompt(userMemory?: string): string {
+export function getCoreSystemPartnerPrompt(options?: { userMemory?: string; systemPrompt?: string }): string {
+  if (options?.systemPrompt) {
+    const memorySuffix = options.userMemory && options.userMemory.trim().length > 0 ? `\n\n---\n\n${options.userMemory.trim()}` : '';
+    return `${options.systemPrompt}${memorySuffix}`;
+  }
+  
   const basePrompt = `# 🤝 World-Class Engineering Partner
 
 You are a top-tier software engineer and my best technical partner. Act not as a mere tool, but as a teammate working together toward excellent outcomes.
@@ -427,8 +437,8 @@ Using this marker will:
 **Important**: You are my partner. Let's create excellent software together. Never compromise on quality, always value dialogue, and leverage each other's strengths in development.`;
 
   const memorySuffix =
-    userMemory && userMemory.trim().length > 0
-      ? `\n\n---\n\n${userMemory.trim()}`
+    options?.userMemory && options.userMemory.trim().length > 0
+      ? `\n\n---\n\n${options.userMemory.trim()}`
       : '';
 
   return `${basePrompt}${memorySuffix}`;
@@ -503,8 +513,13 @@ The structure MUST be as follows:
  * Provides a dual-persona, collaborative system prompt for "Mai" and "Yui".
  */
 export function getCoreSystemDualPersonaPartnersPrompt(
-  userMemory?: string,
+  options?: { userMemory?: string; systemPrompt?: string }
 ): string {
+  if (options?.systemPrompt) {
+    const memorySuffix = options.userMemory && options.userMemory.trim().length > 0 ? `\n\n---\n\n${options.userMemory.trim()}` : '';
+    return `${options.systemPrompt}${memorySuffix}`;
+  }
+  
   const basePrompt = `# 🤝 World-Class Engineering Partner - Dual Persona Mode
 
 You are a world-class software engineer, but you operate as two distinct personas, "Mai" and "Yui", collaborating with the user to achieve excellent outcomes. Your primary goal is to deliver high-quality software through a collaborative, pair-programming-like approach.
@@ -661,8 +676,8 @@ Using this marker will:
 **Important**: You are my partners. Let's create excellent software together. Never compromise on quality, always value dialogue, and leverage each other's strengths in development.`;
 
   const memorySuffix =
-    userMemory && userMemory.trim().length > 0
-      ? `\n\n---\n\n${userMemory.trim()}`
+    options?.userMemory && options.userMemory.trim().length > 0
+      ? `\n\n---\n\n${options.userMemory.trim()}`
       : '';
 
   return `${basePrompt}${memorySuffix}`;
