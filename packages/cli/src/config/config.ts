@@ -27,6 +27,7 @@ import {
   EditTool,
   WriteFileTool,
   MCPServerConfig,
+  getCoreSystemPrompt,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -73,6 +74,8 @@ export interface CliArgs {
   noSelfIntroduce?: boolean;
   loadMemoryFromIncludeDirectories: boolean | undefined;
   chatList: boolean | undefined;
+  systemPrompt?: string;
+  systemPromptFile?: string;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -230,6 +233,14 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('chat-list', {
           type: 'boolean',
           description: 'List all saved conversation checkpoints and exit.',
+        })
+        .option('system-prompt', {
+          type: 'string',
+          description: 'Override the default system prompt',
+        })
+        .option('system-prompt-file', {
+          type: 'string',
+          description: 'Read system prompt from a file to override',
         })
         .check((argv) => {
           if (argv.prompt && argv.promptInteractive) {
@@ -464,7 +475,7 @@ export async function loadCliConfig(
     .concat((argv.includeDirectories || []).map(resolvePath));
 
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
-  const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
+  let { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
     debugMode,
@@ -474,6 +485,22 @@ export async function loadCliConfig(
     memoryImportFormat,
     fileFiltering,
   );
+
+  // Determine the base system prompt based on priority
+  let baseSystemPrompt: string;
+  
+  if (argv.systemPrompt) {
+    baseSystemPrompt = argv.systemPrompt;
+  } else if (argv.systemPromptFile) {
+    try {
+      baseSystemPrompt = fs.readFileSync(argv.systemPromptFile, 'utf-8');
+    } catch (error) {
+      console.error(`Error reading system prompt file: ${argv.systemPromptFile}`);
+      process.exit(4);
+    }
+  } else {
+    baseSystemPrompt = getCoreSystemPrompt();
+  }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
   const question = argv.promptInteractive || argv.prompt || '';
@@ -543,6 +570,7 @@ export async function loadCliConfig(
     mcpServerCommand: settings.mcpServerCommand,
     mcpServers,
     userMemory: memoryContent,
+    systemPrompt: baseSystemPrompt,
     geminiMdFileCount: fileCount,
     approvalMode,
     showMemoryUsage:

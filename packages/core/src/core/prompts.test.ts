@@ -49,7 +49,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
   it('should return the base prompt when userMemory is empty string', () => {
     vi.stubEnv('SANDBOX', undefined);
-    const prompt = getCoreSystemPrompt('');
+    const prompt = getCoreSystemPrompt({ userMemory: '' });
     expect(prompt).not.toContain('---\n\n');
     expect(prompt).toContain('You are an interactive CLI agent');
     expect(prompt).toMatchSnapshot();
@@ -57,7 +57,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
   it('should return the base prompt when userMemory is whitespace only', () => {
     vi.stubEnv('SANDBOX', undefined);
-    const prompt = getCoreSystemPrompt('   \n  \t ');
+    const prompt = getCoreSystemPrompt({ userMemory: '   \n  \t ' });
     expect(prompt).not.toContain('---\n\n');
     expect(prompt).toContain('You are an interactive CLI agent');
     expect(prompt).toMatchSnapshot();
@@ -67,7 +67,7 @@ describe('Core System Prompt (prompts.ts)', () => {
     vi.stubEnv('SANDBOX', undefined);
     const memory = 'This is custom user memory.\nBe extra polite.';
     const expectedSuffix = `\n\n---\n\n${memory}`;
-    const prompt = getCoreSystemPrompt(memory);
+    const prompt = getCoreSystemPrompt({ userMemory: memory });
 
     expect(prompt.endsWith(expectedSuffix)).toBe(true);
     expect(prompt).toContain('You are an interactive CLI agent'); // Ensure base prompt follows
