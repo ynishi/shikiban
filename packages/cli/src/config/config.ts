@@ -573,9 +573,7 @@ export async function loadCliConfig(
     targetDir: process.cwd(),
     includeDirectories,
     loadMemoryFromIncludeDirectories:
-      argv.loadMemoryFromIncludeDirectories ||
-      settings.loadMemoryFromIncludeDirectories ||
-      false,
+      settings.loadMemoryFromIncludeDirectories || false,
     debugMode,
     question,
     fullContext: argv.allFiles || argv.all_files || false,
