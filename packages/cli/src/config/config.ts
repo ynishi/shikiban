@@ -76,6 +76,7 @@ export interface CliArgs {
   chatList: boolean | undefined;
   systemPrompt?: string;
   systemPromptFile?: string;
+  skipMemory?: boolean;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -241,6 +242,11 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('system-prompt-file', {
           type: 'string',
           description: 'Read system prompt from a file to override',
+        })
+        .option('skip-memory', {
+          type: 'boolean',
+          description: 'Do not load any memory from GEMINI.md files.',
+          default: false,
         })
         .check((argv) => {
           if (argv.prompt && argv.promptInteractive) {
@@ -475,16 +481,26 @@ export async function loadCliConfig(
     .concat((argv.includeDirectories || []).map(resolvePath));
 
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
-  let { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
-    process.cwd(),
-    settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
-    debugMode,
-    fileService,
-    settings,
-    extensionContextFilePaths,
-    memoryImportFormat,
-    fileFiltering,
-  );
+  let memoryContent: string;
+  let fileCount: number;
+  
+  if (argv.skipMemory) {
+    memoryContent = '';
+    fileCount = 0;
+  } else {
+    const result = await loadHierarchicalGeminiMemory(
+      process.cwd(),
+      settings.loadMemoryFromIncludeDirectories ? includeDirectories : [],
+      debugMode,
+      fileService,
+      settings,
+      extensionContextFilePaths,
+      memoryImportFormat,
+      fileFiltering,
+    );
+    memoryContent = result.memoryContent;
+    fileCount = result.fileCount;
+  }
 
   // Determine the base system prompt based on priority
   let baseSystemPrompt: string;
