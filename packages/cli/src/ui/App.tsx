@@ -13,8 +13,6 @@ import {
   Text,
   useStdin,
   useStdout,
-  useInput,
-  type Key as InkKeyType,
 } from 'ink';
 import { StreamingState, type HistoryItem, MessageType } from './types.js';
 import { fileWatcherService } from '../services/fileWatcherService.js';
@@ -44,6 +42,7 @@ import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { FolderTrustDialog } from './components/FolderTrustDialog.js';
 import { ShellConfirmationDialog } from './components/ShellConfirmationDialog.js';
 import { UserAgreementIndicator } from './components/UserAgreementIndicator.js';
+import { RadioButtonSelect } from './components/shared/RadioButtonSelect.js';
 import { Colors } from './colors.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
 import { LoadedSettings, SettingScope } from '../config/settings.js';
@@ -85,6 +84,8 @@ import { useBracketedPaste } from './hooks/useBracketedPaste.js';
 import { useTextBuffer } from './components/shared/text-buffer.js';
 import { useVimMode, VimModeProvider } from './contexts/VimModeContext.js';
 import { useVim } from './hooks/vim.js';
+import { useKeypress, Key } from './hooks/useKeypress.js';
+import { keyMatchers, Command } from './keyMatchers.js';
 import * as fs from 'fs';
 import { UpdateNotification } from './components/UpdateNotification.js';
 import {
@@ -573,6 +574,7 @@ const App = ({
     pendingHistoryItems: pendingSlashCommandHistoryItems,
     commandContext,
     shellConfirmationRequest,
+    confirmationRequest,
   } = useSlashCommandProcessor(
     config,
     settings,
@@ -716,50 +718,71 @@ const App = ({
     [handleSlashCommand],
   );
 
-  useInput((input: string, key: InkKeyType) => {
-    let enteringConstrainHeightMode = false;
-    if (!constrainHeight) {
-      // Automatically re-enter constrain height mode if the user types
-      // anything. When constrainHeight==false, the user will experience
-      // significant flickering so it is best to disable it immediately when
-      // the user starts interacting with the app.
-      enteringConstrainHeightMode = true;
-      setConstrainHeight(true);
-    }
+  const handleGlobalKeypress = useCallback(
+    (key: Key) => {
+      let enteringConstrainHeightMode = false;
+      if (!constrainHeight) {
+        enteringConstrainHeightMode = true;
+        setConstrainHeight(true);
+      }
 
-    if (key.ctrl && input === 'o') {
-      setShowErrorDetails((prev) => !prev);
-    } else if (key.ctrl && input === 't') {
-      const newValue = !showToolDescriptions;
-      setShowToolDescriptions(newValue);
+      if (keyMatchers[Command.SHOW_ERROR_DETAILS](key)) {
+        setShowErrorDetails((prev) => !prev);
+      } else if (keyMatchers[Command.TOGGLE_TOOL_DESCRIPTIONS](key)) {
+        const newValue = !showToolDescriptions;
+        setShowToolDescriptions(newValue);
 
-      const mcpServers = config.getMcpServers();
-      if (Object.keys(mcpServers || {}).length > 0) {
-        handleSlashCommand(newValue ? '/mcp desc' : '/mcp nodesc');
+        const mcpServers = config.getMcpServers();
+        if (Object.keys(mcpServers || {}).length > 0) {
+          handleSlashCommand(newValue ? '/mcp desc' : '/mcp nodesc');
+        }
+      } else if (
+        keyMatchers[Command.TOGGLE_IDE_CONTEXT_DETAIL](key) &&
+        config.getIdeMode() &&
+        ideContextState
+      ) {
+        // Show IDE status when in IDE mode and context is available.
+        handleSlashCommand('/ide status');
+      } else if (keyMatchers[Command.QUIT](key)) {
+        // When authenticating, let AuthInProgress component handle Ctrl+C.
+        if (isAuthenticating) {
+          return;
+        }
+        handleExit(ctrlCPressedOnce, setCtrlCPressedOnce, ctrlCTimerRef);
+      } else if (keyMatchers[Command.EXIT](key)) {
+        if (buffer.text.length > 0) {
+          return;
+        }
+        handleExit(ctrlDPressedOnce, setCtrlDPressedOnce, ctrlDTimerRef);
+      } else if (
+        keyMatchers[Command.SHOW_MORE_LINES](key) &&
+        !enteringConstrainHeightMode
+      ) {
+        setConstrainHeight(false);
       }
-    } else if (
-      key.ctrl &&
-      input === 'e' &&
-      config.getIdeMode() &&
-      ideContextState
-    ) {
-      handleSlashCommand('/ide status');
-    } else if (key.ctrl && (input === 'c' || input === 'C')) {
-      if (isAuthenticating) {
-        // Let AuthInProgress component handle the input.
-        return;
-      }
-      handleExit(ctrlCPressedOnce, setCtrlCPressedOnce, ctrlCTimerRef);
-    } else if (key.ctrl && (input === 'd' || input === 'D')) {
-      if (buffer.text.length > 0) {
-        // Do nothing if there is text in the input.
-        return;
-      }
-      handleExit(ctrlDPressedOnce, setCtrlDPressedOnce, ctrlDTimerRef);
-    } else if (key.ctrl && input === 's' && !enteringConstrainHeightMode) {
-      setConstrainHeight(false);
-    }
-  });
+    },
+    [
+      constrainHeight,
+      setConstrainHeight,
+      setShowErrorDetails,
+      showToolDescriptions,
+      setShowToolDescriptions,
+      config,
+      ideContextState,
+      handleExit,
+      ctrlCPressedOnce,
+      setCtrlCPressedOnce,
+      ctrlCTimerRef,
+      buffer.text.length,
+      ctrlDPressedOnce,
+      setCtrlDPressedOnce,
+      ctrlDTimerRef,
+      handleSlashCommand,
+      isAuthenticating,
+    ],
+  );
+
+  useKeypress(handleGlobalKeypress, { isActive: true });
 
   useEffect(() => {
     if (config) {
@@ -1100,6 +1123,21 @@ ${user}に対して、${friendlyPart}かつプロフェッショナルな口調�
             <FolderTrustDialog onSelect={handleFolderTrustSelect} />
           ) : shellConfirmationRequest ? (
             <ShellConfirmationDialog request={shellConfirmationRequest} />
+          ) : confirmationRequest ? (
+            <Box flexDirection="column">
+              {confirmationRequest.prompt}
+              <Box paddingY={1}>
+                <RadioButtonSelect
+                  items={[
+                    { label: 'Yes', value: true },
+                    { label: 'No', value: false },
+                  ]}
+                  onSelect={(value: boolean) => {
+                    confirmationRequest.onConfirm(value);
+                  }}
+                />
+              </Box>
+            </Box>
           ) : isThemeDialogOpen ? (
             <Box flexDirection="column">
               {themeError && (
