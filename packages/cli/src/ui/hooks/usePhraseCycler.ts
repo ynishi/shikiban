@@ -136,7 +136,7 @@ export const WITTY_LOADING_PHRASES = [
   'Have you tried turning it off and on again? (The loading screen, not me.)',
   'Constructing additional pylons...',
   'New line? That’s Ctrl+J.',
-].map(s => "✨"+s);
+].map((s) => '✨' + s);
 
 export const PHRASE_CHANGE_INTERVAL_MS = 15000;
 

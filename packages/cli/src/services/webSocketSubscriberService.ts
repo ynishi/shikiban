@@ -33,7 +33,9 @@ class WebSocketSubscriberService {
     }
 
     if (this.ws) {
-      console.warn('WebSocketSubscriberService is already connected. Closing current connection before starting a new one.');
+      console.warn(
+        'WebSocketSubscriberService is already connected. Closing current connection before starting a new one.',
+      );
       this.stop();
     }
 
@@ -49,7 +51,10 @@ class WebSocketSubscriberService {
 
       this.ws.onmessage = (event) => {
         console.log(`WebSocket message from ${url}: ${event.data}`);
-        internalEventBus.emit(InternalEvent.WEBSOCKET_MESSAGE, { url, data: event.data });
+        internalEventBus.emit(InternalEvent.WEBSOCKET_MESSAGE, {
+          url,
+          data: event.data,
+        });
       };
 
       this.ws.onerror = (error) => {
@@ -58,8 +63,14 @@ class WebSocketSubscriberService {
       };
 
       this.ws.onclose = (event) => {
-        console.log(`WebSocket disconnected from ${url}. Code: ${event.code}, Reason: ${event.reason}`);
-        internalEventBus.emit(InternalEvent.WEBSOCKET_CLOSE, { url, code: event.code, reason: event.reason });
+        console.log(
+          `WebSocket disconnected from ${url}. Code: ${event.code}, Reason: ${event.reason}`,
+        );
+        internalEventBus.emit(InternalEvent.WEBSOCKET_CLOSE, {
+          url,
+          code: event.code,
+          reason: event.reason,
+        });
         this.ws = null;
       };
 
@@ -79,4 +90,5 @@ class WebSocketSubscriberService {
   }
 }
 
-export const webSocketSubscriberService = WebSocketSubscriberService.getInstance();
+export const webSocketSubscriberService =
+  WebSocketSubscriberService.getInstance();

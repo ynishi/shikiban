@@ -140,9 +140,12 @@ interface CalculatedEdit {
   isNewFile: boolean;
 }
 
-class EditToolInvocation extends BaseToolInvocation<EditToolParams, ToolResult> {
+class EditToolInvocation extends BaseToolInvocation<
+  EditToolParams,
+  ToolResult
+> {
   constructor(
-    private readonly config: Config, 
+    private readonly config: Config,
     public params: EditToolParams,
   ) {
     super(params);
@@ -155,8 +158,6 @@ class EditToolInvocation extends BaseToolInvocation<EditToolParams, ToolResult> 
   toolLocations(): ToolLocation[] {
     return [{ path: this.params.file_path }];
   }
-
-  
 
   /**
    * Calculates the potential outcome of an edit operation.

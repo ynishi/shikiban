@@ -158,9 +158,13 @@ const App = ({
   // File Watcher Integration
   useEffect(() => {
     const filewatchEnabled = settings.merged.filewatchEnable ?? true; // Default to true if not specified
-    const watchPath = settings.merged.watchDir || workspaceRoot || process.cwd();
+    const watchPath =
+      settings.merged.watchDir || workspaceRoot || process.cwd();
 
-    fileWatcherService.startWatching({ path: watchPath, enabled: filewatchEnabled });
+    fileWatcherService.startWatching({
+      path: watchPath,
+      enabled: filewatchEnabled,
+    });
 
     const handleFileChange = (event: { type: string; path: string }) => {
       addItem(
@@ -186,9 +190,14 @@ const App = ({
     const webSocketUrl = settings.merged.webSocketUrl;
 
     if (webSocketUrl) {
-      webSocketSubscriberService.start({ url: webSocketUrl, enabled: webSocketEnabled });
+      webSocketSubscriberService.start({
+        url: webSocketUrl,
+        enabled: webSocketEnabled,
+      });
     } else if (webSocketEnabled) {
-      console.warn('WebSocket subscription is enabled but no URL is provided in settings.');
+      console.warn(
+        'WebSocket subscription is enabled but no URL is provided in settings.',
+      );
     }
 
     const handleWebSocketMessage = (event: { url: string; data: unknown }) => {
@@ -211,12 +220,18 @@ const App = ({
       );
     };
 
-    internalEventBus.on(InternalEvent.WEBSOCKET_MESSAGE, handleWebSocketMessage);
+    internalEventBus.on(
+      InternalEvent.WEBSOCKET_MESSAGE,
+      handleWebSocketMessage,
+    );
     internalEventBus.on(InternalEvent.WEBSOCKET_ERROR, handleWebSocketError);
 
     return () => {
       webSocketSubscriberService.stop();
-      internalEventBus.off(InternalEvent.WEBSOCKET_MESSAGE, handleWebSocketMessage);
+      internalEventBus.off(
+        InternalEvent.WEBSOCKET_MESSAGE,
+        handleWebSocketMessage,
+      );
       internalEventBus.off(InternalEvent.WEBSOCKET_ERROR, handleWebSocketError);
     };
   }, [addItem, settings.merged.webSocketEnabled, settings.merged.webSocketUrl]);
@@ -927,12 +942,18 @@ const App = ({
     const osType = os.platform();
     const currentDirectory = workspaceRoot || process.cwd();
 
-    const friendlyPart = settings.merged.friendlyIntroduction === false ? '丁寧に' : '親しみやすく、';
-    const user = settings.merged.userNickName ? `ユーザー(${settings.merged.userNickName})` : 'ユーザー';
+    const friendlyPart =
+      settings.merged.friendlyIntroduction === false
+        ? '丁寧に'
+        : '親しみやすく、';
+    const user = settings.merged.userNickName
+      ? `ユーザー(${settings.merged.userNickName})`
+      : 'ユーザー';
 
-    const introductionGreeting = settings.merged.introductionMode === 'returning'
-      ? 'いつものチームメンバーとして再び起動されました。'
-      : '新しいプロジェクトメンバーとして参加しました。';
+    const introductionGreeting =
+      settings.merged.introductionMode === 'returning'
+        ? 'いつものチームメンバーとして再び起動されました。'
+        : '新しいプロジェクトメンバーとして参加しました。';
 
     return `あなたは、今、${introductionGreeting} 以下の環境情報を含めて、自然な日本語で自己紹介をしてください：
 - 現在の日付: ${currentDate}
@@ -940,7 +961,14 @@ const App = ({
 - 現在の作業ディレクトリ: ${currentDirectory}
 
 ${user}に対して、${friendlyPart}かつプロフェッショナルな口調で挨拶し、どのようなサポートができるか簡潔に説明してください。`;
-  }, [noSelfIntroduce, initialPrompt, workspaceRoot, settings.merged.friendlyIntroduction, settings.merged.userNickName, settings.merged.introductionMode]);
+  }, [
+    noSelfIntroduce,
+    initialPrompt,
+    workspaceRoot,
+    settings.merged.friendlyIntroduction,
+    settings.merged.userNickName,
+    settings.merged.introductionMode,
+  ]);
 
   useEffect(() => {
     // Submit initial prompt if exists

@@ -183,9 +183,11 @@ Only write high-value comments if at all. Avoid talking to the user through comm
 ## Deprecated Features
 
 ### save_memory Tool
+
 The `save_memory` tool has been deprecated. This tool was previously used to save facts to the GEMINI.md file for persistence across sessions. Alternative memory management approaches should be used instead.
 
 ### edit and intelligent_replace Tools
+
 The `edit` (also known as `replace`) and `intelligent_replace` tools have been deprecated. These tools were used for replacing text within files. Use `claude_code` as an alternative for file editing operations.
 
 ## General style requirements

@@ -168,7 +168,7 @@ describe('ReadFileTool', () => {
     it('should return error if file does not exist', async () => {
       const filePath = path.join(tempRootDir, 'nonexistent.txt');
       const params: ReadFileToolParams = { pathHint: filePath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -190,7 +190,7 @@ describe('ReadFileTool', () => {
       const fileContent = 'This is a test file.';
       await fsp.writeFile(filePath, fileContent, 'utf-8');
       const params: ReadFileToolParams = { pathHint: filePath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -205,7 +205,7 @@ describe('ReadFileTool', () => {
       const dirPath = path.join(tempRootDir, 'directory');
       await fsp.mkdir(dirPath);
       const params: ReadFileToolParams = { pathHint: dirPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -228,7 +228,7 @@ describe('ReadFileTool', () => {
       const largeContent = 'x'.repeat(21 * 1024 * 1024);
       await fsp.writeFile(filePath, largeContent, 'utf-8');
       const params: ReadFileToolParams = { pathHint: filePath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -247,7 +247,7 @@ describe('ReadFileTool', () => {
       const fileContent = `Short line\n${longLine}\nAnother short line`;
       await fsp.writeFile(filePath, fileContent, 'utf-8');
       const params: ReadFileToolParams = { pathHint: filePath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -268,14 +268,17 @@ describe('ReadFileTool', () => {
       ]);
       await fsp.writeFile(imagePath, pngHeader);
       const params: ReadFileToolParams = { pathHint: imagePath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toEqual({
-        inlineData: { data: pngHeader.toString('base64'), mimeType: 'image/png' },
+        inlineData: {
+          data: pngHeader.toString('base64'),
+          mimeType: 'image/png',
+        },
       });
       expect(result.returnDisplay).toBe('Read image file: image.png');
     });
@@ -286,14 +289,17 @@ describe('ReadFileTool', () => {
       const pdfHeader = Buffer.from('%PDF-1.4');
       await fsp.writeFile(pdfPath, pdfHeader);
       const params: ReadFileToolParams = { pathHint: pdfPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toEqual({
-        inlineData: { data: pdfHeader.toString('base64'), mimeType: 'application/pdf' },
+        inlineData: {
+          data: pdfHeader.toString('base64'),
+          mimeType: 'application/pdf',
+        },
       });
       expect(result.returnDisplay).toBe('Read pdf file: document.pdf');
     });
@@ -304,7 +310,7 @@ describe('ReadFileTool', () => {
       const binaryData = Buffer.from([0x00, 0xff, 0x00, 0xff]);
       await fsp.writeFile(binPath, binaryData);
       const params: ReadFileToolParams = { pathHint: binPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -321,7 +327,7 @@ describe('ReadFileTool', () => {
       const svgContent = '<svg><circle cx="50" cy="50" r="40"/></svg>';
       await fsp.writeFile(svgPath, svgContent, 'utf-8');
       const params: ReadFileToolParams = { pathHint: svgPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -337,7 +343,7 @@ describe('ReadFileTool', () => {
       const largeContent = '<svg>' + 'x'.repeat(1024 * 1024 + 1) + '</svg>';
       await fsp.writeFile(svgPath, largeContent, 'utf-8');
       const params: ReadFileToolParams = { pathHint: svgPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -355,7 +361,7 @@ describe('ReadFileTool', () => {
       const emptyPath = path.join(tempRootDir, 'empty.txt');
       await fsp.writeFile(emptyPath, '', 'utf-8');
       const params: ReadFileToolParams = { pathHint: emptyPath };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -376,7 +382,7 @@ describe('ReadFileTool', () => {
         offset: 5, // Start from line 6
         limit: 3,
       };
-      const invocation = tool.build(params) as ToolInvocation< 
+      const invocation = tool.build(params) as ToolInvocation<
         ReadFileToolParams,
         ToolResult
       >;
@@ -437,7 +443,7 @@ describe('ReadFileTool', () => {
       });
     });
   });
-  
+
   // This describe block is from HEAD
   describe('workspace boundary validation', () => {
     it('should validate paths are within workspace root', () => {

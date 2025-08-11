@@ -37,7 +37,9 @@ class FileWatcherService {
     }
 
     if (this.watcher) {
-      console.warn('FileWatcherService is already watching. Stopping current watcher before starting a new one.');
+      console.warn(
+        'FileWatcherService is already watching. Stopping current watcher before starting a new one.',
+      );
       this.stopWatching();
     }
 
@@ -45,26 +47,43 @@ class FileWatcherService {
 
     this.watcher = chokidar.watch(path, {
       ignored: chokidarOptions.ignored || /(^|[\\/])\\..*/, // ignore dotfiles
-      persistent: chokidarOptions.persistent !== undefined ? chokidarOptions.persistent : true,
-      ignoreInitial: chokidarOptions.ignoreInitial !== undefined ? chokidarOptions.ignoreInitial : false,
+      persistent:
+        chokidarOptions.persistent !== undefined
+          ? chokidarOptions.persistent
+          : true,
+      ignoreInitial:
+        chokidarOptions.ignoreInitial !== undefined
+          ? chokidarOptions.ignoreInitial
+          : false,
       depth: chokidarOptions.depth,
     });
 
     this.watcher
       .on('add', (path: string) => {
-        internalEventBus.emit(InternalEvent.FILE_CHANGED, { type: 'add', path });
+        internalEventBus.emit(InternalEvent.FILE_CHANGED, {
+          type: 'add',
+          path,
+        });
         console.log(`File ${path} has been added`);
       })
       .on('change', (path: string) => {
-        internalEventBus.emit(InternalEvent.FILE_CHANGED, { type: 'change', path });
+        internalEventBus.emit(InternalEvent.FILE_CHANGED, {
+          type: 'change',
+          path,
+        });
         console.log(`File ${path} has been changed`);
       })
       .on('unlink', (path: string) => {
-        internalEventBus.emit(InternalEvent.FILE_CHANGED, { type: 'unlink', path });
+        internalEventBus.emit(InternalEvent.FILE_CHANGED, {
+          type: 'unlink',
+          path,
+        });
         console.log(`File ${path} has been removed`);
       })
       .on('error', (error: unknown) => console.error(`Watcher error: ${error}`))
-      .on('ready', () => console.log('Initial scan complete. Ready for changes'));
+      .on('ready', () =>
+        console.log('Initial scan complete. Ready for changes'),
+      );
 
     console.log(`Started watching: ${path}`);
   }
