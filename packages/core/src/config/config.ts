@@ -34,6 +34,7 @@ import { GeminiClient } from '../core/client.js';
 import { ClaudeCodeTool } from '../tools/claudeCodeTool.js';
 import { GitTool } from '../tools/gitTool.js';
 import { GitHubTool } from '../tools/githubTool.js';
+import { ShikiManagerTool } from '../tools/shikiManagerTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
 import { getProjectTempDir } from '../utils/paths.js';
@@ -204,6 +205,7 @@ export interface ConfigParameters {
   loadMemoryFromIncludeDirectories?: boolean;
   chatCompression?: ChatCompressionSettings;
   interactive?: boolean;
+  shikiManagerApiUrl?: string;
 }
 
 export class Config {
@@ -270,6 +272,7 @@ export class Config {
   private readonly chatCompression: ChatCompressionSettings | undefined;
   private readonly interactive: boolean;
   private initialized: boolean = false;
+  private readonly shikiManagerApiUrl: string;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -338,6 +341,8 @@ export class Config {
       params.loadMemoryFromIncludeDirectories ?? false;
     this.chatCompression = params.chatCompression;
     this.interactive = params.interactive ?? false;
+    this.shikiManagerApiUrl =
+      params.shikiManagerApiUrl ?? 'http://localhost:8080';
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -716,6 +721,10 @@ export class Config {
     return this.interactive;
   }
 
+  getShikiManagerApiUrl(): string {
+    return this.shikiManagerApiUrl;
+  }
+
   async getGitService(): Promise<GitService> {
     if (!this.gitService) {
       this.gitService = new GitService(this.targetDir);
@@ -776,6 +785,7 @@ export class Config {
     registerCoreTool(ClaudeCodeTool, this);
     registerCoreTool(GitTool, this);
     registerCoreTool(GitHubTool, this);
+    registerCoreTool(ShikiManagerTool, this);
 
     await registry.discoverAllTools();
     return registry;
