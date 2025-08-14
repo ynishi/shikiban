@@ -406,6 +406,15 @@ export const SETTINGS_SCHEMA = {
     description: 'Command to start an MCP server.',
     showInDialog: false,
   },
+  shikiManagerApiUrl: {
+    type: 'string',
+    label: 'Shiki Manager API URL',
+    category: 'Advanced',
+    requiresRestart: true,
+    default: 'http://localhost:8080' as string,
+    description: 'The base URL for the Shiki Manager API.',
+    showInDialog: false,
+  },
   mcpServers: {
     type: 'object',
     label: 'MCP Servers',

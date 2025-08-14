@@ -257,7 +257,7 @@ export async function parseArguments(): Promise<CliArgs> {
           // New exclusive check for chat options
           if (argv.chatList && (argv.prompt || argv.promptInteractive)) {
             throw new Error(
-              'Cannot use --chat-list with --prompt or --prompt-interactive.'
+              'Cannot use --chat-list with --prompt or --prompt-interactive.',
             );
           }
           return true;
@@ -483,7 +483,7 @@ export async function loadCliConfig(
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   let memoryContent: string;
   let fileCount: number;
-  
+
   if (argv.skipMemory) {
     memoryContent = '';
     fileCount = 0;
@@ -504,14 +504,16 @@ export async function loadCliConfig(
 
   // Determine the base system prompt based on priority
   let baseSystemPrompt: string;
-  
+
   if (argv.systemPrompt) {
     baseSystemPrompt = argv.systemPrompt;
   } else if (argv.systemPromptFile) {
     try {
       baseSystemPrompt = fs.readFileSync(argv.systemPromptFile, 'utf-8');
     } catch (error) {
-      console.error(`Error reading system prompt file: ${argv.systemPromptFile}`);
+      console.error(
+        `Error reading system prompt file: ${argv.systemPromptFile}`,
+      );
       process.exit(4);
     }
   } else {

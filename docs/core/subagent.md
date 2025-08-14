@@ -9,10 +9,10 @@ It serves as the foundation for a hierarchical agent architecture, where the mai
 
 ## 2. Key Characteristics
 
-*   **Non-Interactive:** It does not request input or confirmation from the user. Tools that a SubAgent can use are limited to those that do not require user confirmation.
-*   **Goal-Oriented:** It aims to achieve predefined goals and generate specific output variables (configured via `OutputConfig`).
-*   **Constrained Execution:** It operates under constraints such as maximum execution time (`max_time_minutes`) and maximum conversational turns (`max_turns`) to prevent infinite loops or excessive resource consumption.
-*   **Tool Utilization:** It uses tools provided by the `ToolRegistry` to perform its tasks. It also has an internal tool, `self.emitvalue`, to communicate results back to the parent agent.
+- **Non-Interactive:** It does not request input or confirmation from the user. Tools that a SubAgent can use are limited to those that do not require user confirmation.
+- **Goal-Oriented:** It aims to achieve predefined goals and generate specific output variables (configured via `OutputConfig`).
+- **Constrained Execution:** It operates under constraints such as maximum execution time (`max_time_minutes`) and maximum conversational turns (`max_turns`) to prevent infinite loops or excessive resource consumption.
+- **Tool Utilization:** It uses tools provided by the `ToolRegistry` to perform its tasks. It also has an internal tool, `self.emitvalue`, to communicate results back to the parent agent.
 
 ## 3. Execution Model and Asynchronicity
 
