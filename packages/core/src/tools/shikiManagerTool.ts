@@ -128,7 +128,7 @@ export class ShikiManagerTool extends BaseTool<
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ definition: { prompt } }),
+              body: JSON.stringify({ metadata: {}, prompt: prompt, working_directory: './' }),
               signal,
             },
           );
