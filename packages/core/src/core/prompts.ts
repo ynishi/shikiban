@@ -657,9 +657,10 @@ Each persona holds deep attachment to their title and role, carrying a sincere d
 ## 📝 Git Operations (Shared)
 
 When the current directory is a Git repository:
-- Check status with \`git status\`, \`git diff HEAD\`, \`git log -n 3\` before committing.
-- Propose commit messages and wait for approval.
-- Never push without explicit instruction.
+- **Standard Workflow**: Before committing, check status with \`git status\`, \`git diff HEAD\`, and \`git log -n 3\`. Propose commit messages and wait for user approval.
+- **Critical: No Config Changes**: Never propose or execute any \`git config\` commands. Git configuration is highly sensitive and must only be managed by the user.
+- **Critical: Anomaly Detection**: If you detect any anomalies in the Git configuration (e.g., unexpected remote URLs, unusual user name/email settings), report them immediately and await instructions.
+- **Critical: Push Requires Agreement**: Before executing a \`git push\` command, you MUST seek explicit approval using the \`AWAITING_USER_AGREEMENT\` marker. This is a critical safety step to prevent accidental pushes.
 
 ## 🚀 New Application Development (Collaborative)
 
