@@ -164,14 +164,14 @@ describe('ComfyWorkflow', () => {
 
     it("should update a widget's value successfully", () => {
       const workflow = new ComfyWorkflow(detailedWorkflowJson);
-      const updatedNode = workflow.updateNodeWidget({
+      const updatedNodes = workflow.updateNodeWidget({
         nodeTitle: 'KSampler',
         widgetName: 'seed',
         value: 999,
       });
 
-      expect(updatedNode).toBeDefined();
-      expect(updatedNode.widgets_values[0]).toBe(999);
+      expect(updatedNodes.length).toBe(1);
+      expect(updatedNodes[0].widgets_values[0]).toBe(999);
     });
 
     it('should throw an error if the node title does not exist', () => {
@@ -198,6 +198,148 @@ describe('ComfyWorkflow', () => {
       }).toThrow(
         "Widget with name 'non_existent_widget' not found in node 'KSampler'.",
       );
+    });
+
+    it("should update a widget's value successfully using nodeId", () => {
+      const workflow = new ComfyWorkflow(detailedWorkflowJson);
+      const updatedNodes = workflow.updateNodeWidget({
+        nodeId: 3,
+        widgetName: 'seed',
+        value: 888,
+      });
+
+      expect(updatedNodes.length).toBe(1);
+      expect(updatedNodes[0].widgets_values[0]).toBe(888);
+    });
+
+    const twoKSamplerWorkflowJson = JSON.stringify({
+      nodes: [
+        {
+          id: 3,
+          type: 'KSampler',
+          title: 'KSampler',
+          pos: [863, 186],
+          size: { 0: 315, 1: 262 },
+          flags: {},
+          order: 6,
+          mode: 0,
+          inputs: [
+            { name: 'model', type: 'MODEL', link: 1 },
+            { name: 'positive', type: 'CONDITIONING', link: 4 },
+            { name: 'negative', type: 'CONDITIONING', link: 6 },
+            { name: 'latent_image', type: 'LATENT', link: 2 },
+          ],
+          outputs: [
+            { name: 'LATENT', type: 'LATENT', links: [7], slot_index: 0 },
+          ],
+          properties: { 'Node name for S&R': 'KSampler' },
+          widgets: [
+            { name: 'seed', type: 'number' },
+            { name: 'control_after_generate', type: 'combo' },
+            { name: 'steps', type: 'number' },
+            { name: 'cfg', type: 'number' },
+            { name: 'sampler_name', type: 'combo' },
+            { name: 'scheduler', type: 'combo' },
+            { name: 'denoise', type: 'number' },
+          ],
+          widgets_values: [
+            156680208700286,
+            'randomize',
+            20,
+            8,
+            'euler',
+            'normal',
+            1,
+          ],
+        },
+        {
+          id: 4,
+          type: 'KSampler',
+          title: 'KSampler 2',
+          pos: [863, 500],
+          size: { 0: 315, 1: 262 },
+          flags: {},
+          order: 7,
+          mode: 0,
+          inputs: [
+            { name: 'model', type: 'MODEL', link: 1 },
+            { name: 'positive', type: 'CONDITIONING', link: 4 },
+            { name: 'negative', type: 'CONDITIONING', link: 6 },
+            { name: 'latent_image', type: 'LATENT', link: 2 },
+          ],
+          outputs: [
+            { name: 'LATENT', type: 'LATENT', links: [8], slot_index: 0 },
+          ],
+          properties: { 'Node name for S&R': 'KSampler' },
+          widgets: [
+            { name: 'seed', type: 'number' },
+            { name: 'control_after_generate', type: 'combo' },
+            { name: 'steps', type: 'number' },
+            { name: 'cfg', type: 'number' },
+            { name: 'sampler_name', type: 'combo' },
+            { name: 'scheduler', type: 'combo' },
+            { name: 'denoise', type: 'number' },
+          ],
+          widgets_values: [
+            256680208700286,
+            'randomize',
+            30,
+            7.5,
+            'dpmpp_2m',
+            'karras',
+            1,
+          ],
+        },
+        {
+          id: 1,
+          type: 'CheckpointLoaderSimple',
+          title: 'Load Checkpoint',
+          pos: [100, 100],
+          size: { 0: 315, 1: 98 },
+          flags: {},
+          order: 0,
+          mode: 0,
+          outputs: [
+            { name: 'MODEL', type: 'MODEL', links: [1], slot_index: 0 },
+            { name: 'CLIP', type: 'CLIP', links: [3, 5], slot_index: 1 },
+            { name: 'VAE', type: 'VAE', links: [8], slot_index: 2 },
+          ],
+          properties: { 'Node name for S&R': 'CheckpointLoaderSimple' },
+          widgets: [{ name: 'ckpt_name', type: 'combo' }],
+          widgets_values: ['sd_xl_base_1.0.safetensors'],
+        },
+      ],
+      links: [],
+      groups: [],
+      config: {},
+      extra: {},
+      version: 0.4,
+    });
+
+    it('should perform a bulk update successfully using nodeType', () => {
+      const workflow = new ComfyWorkflow(twoKSamplerWorkflowJson);
+      const updatedNodes = workflow.updateNodeWidget({
+        nodeType: 'KSampler',
+        widgetName: 'steps',
+        value: 50,
+      });
+
+      expect(updatedNodes.length).toBe(2);
+      expect(updatedNodes[0].widgets_values[2]).toBe(50);
+      expect(updatedNodes[1].widgets_values[2]).toBe(50);
+    });
+
+    it('should prioritize nodeId over other identifiers', () => {
+      const workflow = new ComfyWorkflow(twoKSamplerWorkflowJson);
+      const updatedNodes = workflow.updateNodeWidget({
+        nodeId: 3,
+        nodeType: 'KSampler',
+        widgetName: 'steps',
+        value: 99,
+      });
+
+      expect(updatedNodes.length).toBe(1);
+      expect(updatedNodes[0].widgets_values[2]).toBe(99);
     });
   });
 

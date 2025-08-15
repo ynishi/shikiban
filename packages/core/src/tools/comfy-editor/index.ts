@@ -40,49 +40,62 @@ export class ComfyWorkflow {
     return this.workflow.nodes?.find((node) => node.id === id);
   }
 
+  public findNodesByType(type: string): ComfyNode[] {
+    return this.workflow.nodes?.filter((node) => node.type === type) || [];
+  }
+
   public updateNodeWidget(update: {
     nodeId?: number;
     nodeTitle?: string;
+    nodeType?: string;
     widgetName: string;
     value: any;
-  }): ComfyNode {
-    let node: ComfyNode | undefined;
+  }): ComfyNode[] {
+    let nodesToUpdate: ComfyNode[] = [];
 
     if (update.nodeId !== undefined) {
-      node = this.findNodeById(update.nodeId);
+      const node = this.findNodeById(update.nodeId);
+      if (node) {
+        nodesToUpdate.push(node);
+      }
     } else if (update.nodeTitle !== undefined) {
-      node = this.findNodeByTitle(update.nodeTitle);
+      const node = this.findNodeByTitle(update.nodeTitle);
+      if (node) {
+        nodesToUpdate.push(node);
+      }
+    } else if (update.nodeType !== undefined) {
+      nodesToUpdate = this.findNodesByType(update.nodeType);
     }
 
-    if (!node) {
-      if (update.nodeId !== undefined && update.nodeTitle !== undefined) {
-        throw new Error(
-          `Node with id '${update.nodeId}' or title '${update.nodeTitle}' not found.`,
-        );
-      } else if (update.nodeId !== undefined) {
+    if (nodesToUpdate.length === 0) {
+      if (update.nodeId !== undefined) {
         throw new Error(`Node with id '${update.nodeId}' not found.`);
       } else if (update.nodeTitle !== undefined) {
         throw new Error(`Node with title '${update.nodeTitle}' not found.`);
+      } else if (update.nodeType !== undefined) {
+        throw new Error(`No nodes with type '${update.nodeType}' found.`);
       } else {
-        throw new Error('Either nodeId or nodeTitle must be provided.');
+        throw new Error('Either nodeId, nodeTitle, or nodeType must be provided.');
       }
     }
 
-    const widgetIndex = node.widgets?.findIndex(
-      (widget: any) => widget.name === update.widgetName,
-    );
-    if (widgetIndex === undefined || widgetIndex === -1) {
-      throw new Error(
-        `Widget with name '${update.widgetName}' not found in node '${node.title}'.`,
+    for (const node of nodesToUpdate) {
+      const widgetIndex = node.widgets?.findIndex(
+        (widget: any) => widget.name === update.widgetName,
       );
+      if (widgetIndex === undefined || widgetIndex === -1) {
+        throw new Error(
+          `Widget with name '${update.widgetName}' not found in node '${node.title}'.`,
+        );
+      }
+
+      if (!node.widgets_values) {
+        node.widgets_values = [];
+      }
+      node.widgets_values[widgetIndex] = update.value;
     }
 
-    if (!node.widgets_values) {
-      node.widgets_values = [];
-    }
-    node.widgets_values[widgetIndex] = update.value;
-
-    return node;
+    return nodesToUpdate;
   }
 
   public serialize(): string {

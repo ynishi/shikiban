@@ -15,6 +15,7 @@ export interface ComfyEditorToolParams {
   updates: Array<{
     nodeId?: number;
     nodeTitle?: string;
+    nodeType?: string;
     widgetName: string;
     value: unknown;
   }>;
@@ -52,6 +53,10 @@ export class ComfyEditorTool extends BaseTool<
                     'The unique ID of the node to target. If provided, this takes precedence over nodeTitle.',
                 },
                 nodeTitle: { type: Type.STRING },
+                nodeType: {
+                  type: Type.STRING,
+                  description: 'The type of nodes to target for a bulk update.',
+                },
                 widgetName: { type: Type.STRING },
                 value: {},
               },

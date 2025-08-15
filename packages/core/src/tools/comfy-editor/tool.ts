@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'fs/promises';
 export interface WidgetUpdate {
   nodeId?: number;
   nodeTitle?: string;
+  nodeType?: string;
   widgetName: string;
   value: any;
 }
