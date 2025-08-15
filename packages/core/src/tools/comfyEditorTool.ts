@@ -13,11 +13,13 @@ import { Config } from '../config/config.js';
 export interface ComfyEditorToolParams {
   file_path: string;
   updates: Array<{
-    nodeId?: number;
+    action?: 'add_node' | 'update_widget';
+    node?: any; // For adding nodes
+    nodeId?: number; // For updating widgets
     nodeTitle?: string;
     nodeType?: string;
-    widgetName: string;
-    value: unknown;
+    widgetName?: string;
+    value?: any;
   }>;
 }
 
@@ -43,14 +45,24 @@ export class ComfyEditorTool extends BaseTool<
           },
           updates: {
             type: Type.ARRAY,
-            description: 'An array of update operations to apply.',
+            description: 'An array of update or add operations to apply.',
             items: {
               type: Type.OBJECT,
               properties: {
+                action: {
+                  type: Type.STRING,
+                  description:
+                    'The action to perform: `add_node` or `update_widget`. Defaults to `update_widget`.',
+                },
+                node: {
+                  type: Type.OBJECT,
+                  description:
+                    'The node object to add. Required for `add_node` action.',
+                },
                 nodeId: {
                   type: Type.NUMBER,
                   description:
-                    'The unique ID of the node to target. If provided, this takes precedence over nodeTitle.',
+                    'The unique ID of the node to target for updates. If provided, this takes precedence over nodeTitle.',
                 },
                 nodeTitle: { type: Type.STRING },
                 nodeType: {
@@ -60,7 +72,6 @@ export class ComfyEditorTool extends BaseTool<
                 widgetName: { type: Type.STRING },
                 value: {},
               },
-              required: ['widgetName', 'value'],
             },
           },
         },

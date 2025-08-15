@@ -6,6 +6,7 @@ interface ComfyNode {
 }
 
 interface ComfyWorkflowData {
+  last_node_id: number;
   nodes: ComfyNode[];
   [key: string]: any;
 }
@@ -75,7 +76,9 @@ export class ComfyWorkflow {
       } else if (update.nodeType !== undefined) {
         throw new Error(`No nodes with type '${update.nodeType}' found.`);
       } else {
-        throw new Error('Either nodeId, nodeTitle, or nodeType must be provided.');
+        throw new Error(
+          'Either nodeId, nodeTitle, or nodeType must be provided.',
+        );
       }
     }
 
@@ -100,5 +103,17 @@ export class ComfyWorkflow {
 
   public serialize(): string {
     return JSON.stringify(this.workflow, null, 2);
+  }
+
+  public addNode(node: ComfyNode): void {
+    if (this.workflow.last_node_id === undefined) {
+      this.workflow.last_node_id =
+        this.workflow.nodes.length > 0
+          ? Math.max(...this.workflow.nodes.map((n) => n.id))
+          : 0;
+    }
+    this.workflow.last_node_id += 1;
+    node.id = this.workflow.last_node_id;
+    this.workflow.nodes.push(node);
   }
 }
