@@ -39,7 +39,7 @@ describe('ComfyEditorTool', () => {
     expect(executeWorkflowUpdates).toHaveBeenCalledTimes(1);
     expect(executeWorkflowUpdates).toHaveBeenCalledWith(
       params.file_path,
-      params.updates
+      params.updates,
     );
 
     const successMessage = '✅ ComfyUI workflow updated successfully.';
@@ -50,7 +50,9 @@ describe('ComfyEditorTool', () => {
 
   it('should return an error result when executeWorkflowUpdates fails', async () => {
     const errorMessage = 'Something went wrong';
-    vi.mocked(executeWorkflowUpdates).mockRejectedValue(new Error(errorMessage));
+    vi.mocked(executeWorkflowUpdates).mockRejectedValue(
+      new Error(errorMessage),
+    );
 
     const params: ComfyEditorToolParams = {
       file_path: '/test/workflow.json',

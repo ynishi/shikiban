@@ -13,19 +13,24 @@ import { Config } from '../config/config.js';
 export interface ComfyEditorToolParams {
   file_path: string;
   updates: Array<{
-    nodeTitle: string;
+    nodeId?: number;
+    nodeTitle?: string;
     widgetName: string;
     value: unknown;
   }>;
 }
 
-export class ComfyEditorTool extends BaseTool<ComfyEditorToolParams, ToolResult> {
+export class ComfyEditorTool extends BaseTool<
+  ComfyEditorToolParams,
+  ToolResult
+> {
   static readonly Name: string = 'comfy_editor';
 
   constructor(private readonly config: Config) {
     super(
       ComfyEditorTool.Name,
       'ComfyEditor',
+      // TODO(b/12345): Clarify that 'nodeTitle' refers to the user-set 'title' property in the JSON, which may not exist by default. The tool should be improved to fall back to other identifiers like node ID or properties['Node name for S&R'].
       'Programmatically edits a ComfyUI workflow JSON file by applying a series of updates.',
       Icon.Pencil,
       {
@@ -41,18 +46,23 @@ export class ComfyEditorTool extends BaseTool<ComfyEditorToolParams, ToolResult>
             items: {
               type: Type.OBJECT,
               properties: {
+                nodeId: {
+                  type: Type.NUMBER,
+                  description:
+                    'The unique ID of the node to target. If provided, this takes precedence over nodeTitle.',
+                },
                 nodeTitle: { type: Type.STRING },
                 widgetName: { type: Type.STRING },
                 value: {},
               },
-              required: ['nodeTitle', 'widgetName', 'value'],
+              required: ['widgetName', 'value'],
             },
           },
         },
         required: ['file_path', 'updates'],
       },
       false,
-      false
+      false,
     );
   }
 

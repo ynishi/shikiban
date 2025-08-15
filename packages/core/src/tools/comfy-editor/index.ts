@@ -33,24 +33,54 @@ export class ComfyWorkflow {
   }
 
   public findNodeByTitle(title: string): ComfyNode | undefined {
-    return this.workflow.nodes?.find(node => node.title === title);
+    return this.workflow.nodes?.find((node) => node.title === title);
   }
 
-  public updateNodeWidget(nodeTitle: string, widgetName: string, value: any): ComfyNode {
-    const node = this.findNodeByTitle(nodeTitle);
-    if (!node) {
-      throw new Error(`Node with title '${nodeTitle}' not found.`);
+  public findNodeById(id: number): ComfyNode | undefined {
+    return this.workflow.nodes?.find((node) => node.id === id);
+  }
+
+  public updateNodeWidget(update: {
+    nodeId?: number;
+    nodeTitle?: string;
+    widgetName: string;
+    value: any;
+  }): ComfyNode {
+    let node: ComfyNode | undefined;
+
+    if (update.nodeId !== undefined) {
+      node = this.findNodeById(update.nodeId);
+    } else if (update.nodeTitle !== undefined) {
+      node = this.findNodeByTitle(update.nodeTitle);
     }
 
-    const widgetIndex = node.widgets?.findIndex((widget: any) => widget.name === widgetName);
+    if (!node) {
+      if (update.nodeId !== undefined && update.nodeTitle !== undefined) {
+        throw new Error(
+          `Node with id '${update.nodeId}' or title '${update.nodeTitle}' not found.`,
+        );
+      } else if (update.nodeId !== undefined) {
+        throw new Error(`Node with id '${update.nodeId}' not found.`);
+      } else if (update.nodeTitle !== undefined) {
+        throw new Error(`Node with title '${update.nodeTitle}' not found.`);
+      } else {
+        throw new Error('Either nodeId or nodeTitle must be provided.');
+      }
+    }
+
+    const widgetIndex = node.widgets?.findIndex(
+      (widget: any) => widget.name === update.widgetName,
+    );
     if (widgetIndex === undefined || widgetIndex === -1) {
-      throw new Error(`Widget with name '${widgetName}' not found in node '${nodeTitle}'.`);
+      throw new Error(
+        `Widget with name '${update.widgetName}' not found in node '${node.title}'.`,
+      );
     }
 
     if (!node.widgets_values) {
       node.widgets_values = [];
     }
-    node.widgets_values[widgetIndex] = value;
+    node.widgets_values[widgetIndex] = update.value;
 
     return node;
   }

@@ -25,10 +25,10 @@ describe('executeWorkflowUpdates', () => {
             { name: 'model', type: 'MODEL', link: 1 },
             { name: 'positive', type: 'CONDITIONING', link: 4 },
             { name: 'negative', type: 'CONDITIONING', link: 6 },
-            { name: 'latent_image', type: 'LATENT', link: 2 }
+            { name: 'latent_image', type: 'LATENT', link: 2 },
           ],
           outputs: [
-            { name: 'LATENT', type: 'LATENT', links: [7], slot_index: 0 }
+            { name: 'LATENT', type: 'LATENT', links: [7], slot_index: 0 },
           ],
           properties: { 'Node name for S&R': 'KSampler' },
           widgets: [
@@ -38,35 +38,50 @@ describe('executeWorkflowUpdates', () => {
             { name: 'cfg', type: 'number' },
             { name: 'sampler_name', type: 'combo' },
             { name: 'scheduler', type: 'combo' },
-            { name: 'denoise', type: 'number' }
+            { name: 'denoise', type: 'number' },
           ],
-          widgets_values: [156680208700286, 'randomize', 20, 8, 'euler', 'normal', 1]
-        }
+          widgets_values: [
+            156680208700286,
+            'randomize',
+            20,
+            8,
+            'euler',
+            'normal',
+            1,
+          ],
+        },
       ],
       links: [],
       groups: [],
       config: {},
       extra: {},
-      version: 0.4
+      version: 0.4,
     };
 
-    vi.mocked(readFile).mockResolvedValue(Buffer.from(JSON.stringify(mockWorkflowJson, null, 2)));
+    vi.mocked(readFile).mockResolvedValue(
+      Buffer.from(JSON.stringify(mockWorkflowJson, null, 2)),
+    );
     vi.mocked(writeFile).mockResolvedValue(undefined);
 
     const updates = [
       { nodeTitle: 'KSampler', widgetName: 'seed', value: 123456789 },
-      { nodeTitle: 'KSampler', widgetName: 'steps', value: 30 }
+      { nodeTitle: 'KSampler', widgetName: 'steps', value: 30 },
     ];
 
     await executeWorkflowUpdates('dummy/path/workflow.json', updates);
 
     expect(readFile).toHaveBeenCalledWith('dummy/path/workflow.json');
-    expect(writeFile).toHaveBeenCalledWith('dummy/path/workflow.json', expect.any(String));
+    expect(writeFile).toHaveBeenCalledWith(
+      'dummy/path/workflow.json',
+      expect.any(String),
+    );
 
     const writtenContent = vi.mocked(writeFile).mock.calls[0][1] as string;
     const writtenWorkflow = JSON.parse(writtenContent);
-    
-    const kSamplerNode = writtenWorkflow.nodes.find((n: any) => n.type === 'KSampler');
+
+    const kSamplerNode = writtenWorkflow.nodes.find(
+      (n: any) => n.type === 'KSampler',
+    );
     expect(kSamplerNode.widgets_values[0]).toBe(123456789);
     expect(kSamplerNode.widgets_values[2]).toBe(30);
   });
