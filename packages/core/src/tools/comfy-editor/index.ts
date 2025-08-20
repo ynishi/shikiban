@@ -6,6 +6,7 @@ interface ComfyNode {
 }
 
 interface ComfyWorkflowData {
+  last_node_id: number;
   nodes: ComfyNode[];
   [key: string]: any;
 }
@@ -33,29 +34,86 @@ export class ComfyWorkflow {
   }
 
   public findNodeByTitle(title: string): ComfyNode | undefined {
-    return this.workflow.nodes?.find(node => node.title === title);
+    return this.workflow.nodes?.find((node) => node.title === title);
   }
 
-  public updateNodeWidget(nodeTitle: string, widgetName: string, value: any): ComfyNode {
-    const node = this.findNodeByTitle(nodeTitle);
-    if (!node) {
-      throw new Error(`Node with title '${nodeTitle}' not found.`);
+  public findNodeById(id: number): ComfyNode | undefined {
+    return this.workflow.nodes?.find((node) => node.id === id);
+  }
+
+  public findNodesByType(type: string): ComfyNode[] {
+    return this.workflow.nodes?.filter((node) => node.type === type) || [];
+  }
+
+  public updateNodeWidget(update: {
+    nodeId?: number;
+    nodeTitle?: string;
+    nodeType?: string;
+    widgetName: string;
+    value: any;
+  }): ComfyNode[] {
+    let nodesToUpdate: ComfyNode[] = [];
+
+    if (update.nodeId !== undefined) {
+      const node = this.findNodeById(update.nodeId);
+      if (node) {
+        nodesToUpdate.push(node);
+      }
+    } else if (update.nodeTitle !== undefined) {
+      const node = this.findNodeByTitle(update.nodeTitle);
+      if (node) {
+        nodesToUpdate.push(node);
+      }
+    } else if (update.nodeType !== undefined) {
+      nodesToUpdate = this.findNodesByType(update.nodeType);
     }
 
-    const widgetIndex = node.widgets?.findIndex((widget: any) => widget.name === widgetName);
-    if (widgetIndex === undefined || widgetIndex === -1) {
-      throw new Error(`Widget with name '${widgetName}' not found in node '${nodeTitle}'.`);
+    if (nodesToUpdate.length === 0) {
+      if (update.nodeId !== undefined) {
+        throw new Error(`Node with id '${update.nodeId}' not found.`);
+      } else if (update.nodeTitle !== undefined) {
+        throw new Error(`Node with title '${update.nodeTitle}' not found.`);
+      } else if (update.nodeType !== undefined) {
+        throw new Error(`No nodes with type '${update.nodeType}' found.`);
+      } else {
+        throw new Error(
+          'Either nodeId, nodeTitle, or nodeType must be provided.',
+        );
+      }
     }
 
-    if (!node.widgets_values) {
-      node.widgets_values = [];
-    }
-    node.widgets_values[widgetIndex] = value;
+    for (const node of nodesToUpdate) {
+      const widgetIndex = node.widgets?.findIndex(
+        (widget: any) => widget.name === update.widgetName,
+      );
+      if (widgetIndex === undefined || widgetIndex === -1) {
+        throw new Error(
+          `Widget with name '${update.widgetName}' not found in node '${node.title}'.`,
+        );
+      }
 
-    return node;
+      if (!node.widgets_values) {
+        node.widgets_values = [];
+      }
+      node.widgets_values[widgetIndex] = update.value;
+    }
+
+    return nodesToUpdate;
   }
 
   public serialize(): string {
     return JSON.stringify(this.workflow, null, 2);
+  }
+
+  public addNode(node: ComfyNode): void {
+    if (this.workflow.last_node_id === undefined) {
+      this.workflow.last_node_id =
+        this.workflow.nodes.length > 0
+          ? Math.max(...this.workflow.nodes.map((n) => n.id))
+          : 0;
+    }
+    this.workflow.last_node_id += 1;
+    node.id = this.workflow.last_node_id;
+    this.workflow.nodes.push(node);
   }
 }
