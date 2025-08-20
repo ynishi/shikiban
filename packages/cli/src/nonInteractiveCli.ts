@@ -13,6 +13,13 @@ import {
   isTelemetrySdkInitialized,
   GeminiEventType,
   ToolErrorType,
+  AuthType,
+  FlashFallbackEvent,
+  logFlashFallback,
+  DEFAULT_GEMINI_FLASH_MODEL,
+  isProQuotaExceededError,
+  isGenericQuotaExceededError,
+  UserTierId,
 } from '@google/gemini-cli-core';
 import { Content, Part, FunctionCall } from '@google/genai';
 
@@ -28,6 +35,44 @@ export async function runNonInteractive(
     stderr: true,
     debugMode: config.getDebugMode(),
   });
+
+  let modelSwitchedAndNeedsRetry = false;
+
+  const nonInteractiveFlashFallbackHandler = async (
+    currentModel: string,
+    fallbackModel: string,
+    error?: unknown,
+  ): Promise<boolean> => {
+    let message: string;
+
+    if (
+      config.getContentGeneratorConfig().authType ===
+      AuthType.LOGIN_WITH_GOOGLE
+    ) {
+      const isPaidTier = false;
+
+      if (error && isProQuotaExceededError(error)) {
+        message = `⚡ You have reached your daily ${currentModel} quota limit. Automatically switching from ${currentModel} to ${fallbackModel} for the remainder of this session.`;
+      } else if (error && isGenericQuotaExceededError(error)) {
+        message = `⚡ You have reached your daily quota limit. Automatically switching from ${currentModel} to ${fallbackModel} for the remainder of this session.`;
+      } else {
+        message = `⚡ Automatically switching from ${currentModel} to ${fallbackModel} for faster responses for the remainder of this session. Possible reasons for this are that you have received multiple consecutive capacity errors or you have reached your daily ${currentModel} quota limit.`;
+      }
+
+      console.error(message);
+      modelSwitchedAndNeedsRetry = true;
+    }
+
+    config.setModel(fallbackModel);
+    config.setFallbackMode(true);
+    logFlashFallback(
+      config,
+      new FlashFallbackEvent(config.getContentGeneratorConfig().authType!),
+    );
+    return false;
+  };
+
+  config.setFlashFallbackHandler(nonInteractiveFlashFallbackHandler);
 
   try {
     consolePatcher.patch();
@@ -49,6 +94,15 @@ export async function runNonInteractive(
     let turnCount = 0;
     while (true) {
       turnCount++;
+
+      if (modelSwitchedAndNeedsRetry) {
+        console.error('モデルが切り替わりました。プロンプトを再送信します...');
+        modelSwitchedAndNeedsRetry = false;
+        config.setQuotaErrorOccurred(false);
+        currentMessages = [{ role: 'user', parts: [{ text: input }] }];
+        turnCount = 1;
+      }
+
       if (
         config.getMaxSessionTurns() >= 0 &&
         turnCount > config.getMaxSessionTurns()
