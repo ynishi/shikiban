@@ -24,6 +24,7 @@ interface ShikiManagerResponse {
 
 /**
  * A tool for managing the Shiki system.
+ * @deprecated Use ShikiTool instead. This tool is a low-level wrapper.
  */
 export class ShikiManagerTool extends BaseTool<
   ShikiManagerToolParams,
