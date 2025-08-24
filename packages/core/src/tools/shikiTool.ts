@@ -24,10 +24,15 @@ export interface ShikiToolParams {
   subcommand: 'create_task' | 'get_task' | 'list_tasks';
   prompt?: string;
   taskId?: string;
+  title?: string;
   repo_origin?: string;
   branch?: string;
-  keepWorkingDir?: boolean;
-  workingDirPrefix?: string;
+  files?: Record<string, string>;
+  local_repo_dir?: string;
+  metadata?: Record<string, unknown>;
+  post_execution_check_command?: string;
+  keep_working_dir?: boolean;
+  working_dir_prefix?: string;
 }
 
 /**
@@ -61,6 +66,10 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
             type: Type.STRING,
             description: 'The ID of the task to get. Required for `get_task`.',
           },
+          title: {
+            type: Type.STRING,
+            description: 'Optional: Title for the task.',
+          },
           repo_origin: {
             type: Type.STRING,
             description: 'The URL of the Git repository to clone. Required for `create_task`.',
@@ -69,11 +78,27 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
             type: Type.STRING,
             description: 'The branch name to clone. Required for `create_task`.',
           },
-          keepWorkingDir: {
+          files: {
+            type: Type.OBJECT,
+            description: 'Optional: Map of file paths to file contents to include in the task.',
+          },
+          local_repo_dir: {
+            type: Type.STRING,
+            description: 'Optional: Path to a local repository directory.',
+          },
+          metadata: {
+            type: Type.OBJECT,
+            description: 'Optional: Additional metadata for the task.',
+          },
+          post_execution_check_command: {
+            type: Type.STRING,
+            description: 'Optional: Command to run after task execution for validation.',
+          },
+          keep_working_dir: {
             type: Type.BOOLEAN,
             description: 'Optional: Whether to keep the working directory after task completion. Defaults to false.',
           },
-          workingDirPrefix: {
+          working_dir_prefix: {
             type: Type.STRING,
             description: 'Optional: Prefix for the working directory name.',
           },
@@ -207,21 +232,38 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
         case 'create_task': {
           updateOutput?.('⏳ Task creation initiated...');
           
-          // Build args array with required and optional parameters
-          const args: string[] = [
-            '--prompt', params.prompt!,
-            '--repo-origin', params.repo_origin!,
-            '--branch', params.branch!
-          ];
+          // Build task definition object from params
+          const taskDefinition: Record<string, unknown> = {
+            prompt: params.prompt!,
+            repo_origin: params.repo_origin!,
+            branch: params.branch!,
+          };
           
           // Add optional parameters if present
-          if (params.keepWorkingDir === true) {
-            args.push('--keep-working-dir', 'true');
+          if (params.title) {
+            taskDefinition.title = params.title;
+          }
+          if (params.files) {
+            taskDefinition.files = params.files;
+          }
+          if (params.local_repo_dir) {
+            taskDefinition.local_repo_dir = params.local_repo_dir;
+          }
+          if (params.metadata) {
+            taskDefinition.metadata = params.metadata;
+          }
+          if (params.post_execution_check_command) {
+            taskDefinition.post_execution_check_command = params.post_execution_check_command;
+          }
+          if (params.keep_working_dir !== undefined) {
+            taskDefinition.keep_working_dir = params.keep_working_dir;
+          }
+          if (params.working_dir_prefix) {
+            taskDefinition.working_dir_prefix = params.working_dir_prefix;
           }
           
-          if (params.workingDirPrefix) {
-            args.push('--working-dir-prefix', params.workingDirPrefix);
-          }
+          // Pass the task definition as a JSON payload
+          const args = ['--json-payload', JSON.stringify(taskDefinition)];
           
           const result = await this.shikiManagerTool.execute(
             { subcommand: 'create_task', args },
