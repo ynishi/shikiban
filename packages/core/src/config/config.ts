@@ -34,7 +34,6 @@ import { GeminiClient } from '../core/client.js';
 import { ClaudeCodeTool } from '../tools/claudeCodeTool.js';
 import { GitTool } from '../tools/gitTool.js';
 import { GitHubTool } from '../tools/githubTool.js';
-import { ShikiManagerTool } from '../tools/shikiManagerTool.js';
 import { ShikiTool } from '../tools/shikiTool.js';
 import { ComfyEditorTool } from '../tools/comfyEditorTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
