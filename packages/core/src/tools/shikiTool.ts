@@ -9,19 +9,30 @@ import { Type } from '@google/genai';
 import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
-import { ShikiManagerTool } from './shikiManagerTool.js';
 import WebSocket from 'ws';
 
 export interface Task {
   id: string;
-  status: string; // "Pending", "InProgress", "Completed", "Failed"
+  status: string;
   prompt: string;
   result?: Record<string, unknown> | null;
   createdAt: string;
 }
 
+interface ApiTaskData {
+  id: string;
+  status: string;
+  created_at: string;
+  definition?: {
+    prompt?: string;
+    [key: string]: unknown;
+  };
+  result?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export interface ShikiToolParams {
-  subcommand: 'create_task' | 'get_task' | 'list_tasks';
+  subcommand: 'create_task' | 'get_task' | 'list_tasks' | 'list_services';
   prompt?: string;
   taskId?: string;
   title?: string;
@@ -33,38 +44,39 @@ export interface ShikiToolParams {
   post_execution_check_command?: string;
   keep_working_dir?: boolean;
   working_dir_prefix?: string;
+  verbose?: boolean;
+  service_type?: string;
 }
 
 /**
- * A high-level tool to interact with the Shiki system.
- * Handles asynchronous communication via WebSockets internally.
+ * A tool to interact with the Shiki system.
+ * Handles task management and WebSocket communication for real-time updates.
  */
 export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
   static readonly Name: string = 'shiki_tool';
-  private shikiManagerTool: ShikiManagerTool;
   private subscriptions = new Map<string, WebSocket>();
 
   constructor(private readonly config: Config) {
     super(
       ShikiTool.Name,
       'Shiki',
-      'A high-level tool to create and manage tasks in the Shiki system.',
-      Icon.Hammer, // Corrected Icon
+      'A tool to create and manage tasks in the Shiki system.',
+      Icon.Hammer,
       {
         type: Type.OBJECT,
         properties: {
           subcommand: {
             type: Type.STRING,
-            description: 'The subcommand to execute: create_task, get_task, list_tasks',
-            enum: ['create_task', 'get_task', 'list_tasks'],
+            description: 'The subcommand to execute: create_task, get_task, list_tasks, list_services',
+            enum: ['create_task', 'get_task', 'list_tasks', 'list_services'],
           },
           prompt: {
             type: Type.STRING,
-            description: 'The prompt for creating a new task. Required for `create_task`.',
+            description: 'The prompt for creating a new task. Required for create_task.',
           },
           taskId: {
             type: Type.STRING,
-            description: 'The ID of the task to get. Required for `get_task`.',
+            description: 'The ID of the task to get. Required for get_task.',
           },
           title: {
             type: Type.STRING,
@@ -72,11 +84,11 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
           },
           repo_origin: {
             type: Type.STRING,
-            description: 'The URL of the Git repository to clone. Required for `create_task`.',
+            description: 'The URL of the Git repository to clone. Required for create_task.',
           },
           branch: {
             type: Type.STRING,
-            description: 'The branch name to clone. Required for `create_task`.',
+            description: 'The branch name to clone. Required for create_task.',
           },
           files: {
             type: Type.OBJECT,
@@ -102,14 +114,20 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
             type: Type.STRING,
             description: 'Optional: Prefix for the working directory name.',
           },
+          verbose: {
+            type: Type.BOOLEAN,
+            description: 'Optional: Show detailed output for list_tasks. Defaults to false.',
+          },
+          service_type: {
+            type: Type.STRING,
+            description: 'Optional: Filter services by type for list_services.',
+          },
         },
         required: ['subcommand'],
       },
       false,
-      true // canUpdateOutput = true
+      true
     );
-
-    this.shikiManagerTool = new ShikiManagerTool(this.config);
   }
 
   validateToolParams(params: ShikiToolParams): string | null {
@@ -136,6 +154,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
         }
         break;
       case 'list_tasks':
+      case 'list_services':
         break;
       default:
         return `Invalid subcommand: ${params.subcommand}`;
@@ -151,8 +170,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
     return `Executing Shiki command: ${params.subcommand}`;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private toApiTask(data: any): Task {
+  private toApiTask(data: ApiTaskData): Task {
     return {
       id: data.id,
       status: data.status,
@@ -160,6 +178,89 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
       createdAt: data.created_at,
       result: data.result,
     };
+  }
+
+  private formatTasksAsTable(tasks: ApiTaskData[]): string {
+    if (!tasks || tasks.length === 0) {
+      return 'No tasks found.';
+    }
+
+    const columnWidths = {
+      id: 38,
+      status: 10,
+      createdAt: 21,
+      prompt: 62,
+    };
+
+    let table = '';
+
+    table +=
+      '┌' +
+      '─'.repeat(columnWidths.id) +
+      '┬' +
+      '─'.repeat(columnWidths.status) +
+      '┬' +
+      '─'.repeat(columnWidths.createdAt) +
+      '┬' +
+      '─'.repeat(columnWidths.prompt) +
+      '┐\n';
+
+    table +=
+      '│ ' +
+      'ID'.padEnd(columnWidths.id - 2) +
+      ' │ ' +
+      'Status'.padEnd(columnWidths.status - 2) +
+      ' │ ' +
+      'Created At'.padEnd(columnWidths.createdAt - 2) +
+      ' │ ' +
+      'Prompt'.padEnd(columnWidths.prompt - 2) +
+      ' │\n';
+
+    table +=
+      '├' +
+      '─'.repeat(columnWidths.id) +
+      '┼' +
+      '─'.repeat(columnWidths.status) +
+      '┼' +
+      '─'.repeat(columnWidths.createdAt) +
+      '┼' +
+      '─'.repeat(columnWidths.prompt) +
+      '┤\n';
+
+    tasks.forEach((task) => {
+      const id = task.id || '';
+      const status = task.status || '';
+      const createdAt = task.created_at
+        ? new Date(task.created_at).toLocaleString('sv')
+        : '';
+      const prompt = task.definition?.prompt || '';
+      const truncatedPrompt =
+        prompt.length > 60 ? prompt.substring(0, 60) + '...' : prompt;
+
+      table +=
+        '│ ' +
+        id.padEnd(columnWidths.id - 2) +
+        ' │ ' +
+        status.padEnd(columnWidths.status - 2) +
+        ' │ ' +
+        createdAt.padEnd(columnWidths.createdAt - 2) +
+        ' │ ' +
+        truncatedPrompt.padEnd(columnWidths.prompt - 2) +
+        ' │\n';
+    });
+
+    table +=
+      '└' +
+      '─'.repeat(columnWidths.id) +
+      '┴' +
+      '─'.repeat(columnWidths.status) +
+      '┴' +
+      '─'.repeat(columnWidths.createdAt) +
+      '┴' +
+      '─'.repeat(columnWidths.prompt) +
+      '┘';
+
+    return table;
   }
 
   closeAllSubscriptions() {
@@ -188,58 +289,71 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
       };
     }
 
+    const apiUrl = this.config.getShikiManagerApiUrl();
+
     try {
-      // eslint-disable-next-line default-case
       switch (params.subcommand) {
         case 'list_tasks': {
-          const result = await this.shikiManagerTool.execute(
-            { subcommand: 'list_tasks', args: ['--verbose'] },
-            signal
-          );
+          const response = await fetch(`${apiUrl}/api/v1/tasks`, {
+            method: 'GET',
+            signal,
+          });
 
-          if (result.error || !result.llmContent) {
-            throw new Error(result.error?.message || 'Failed to list tasks');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error: ${response.status}`);
           }
+
+          const data = await response.json();
           
-          const tasks = JSON.parse(result.llmContent as string).data.map(this.toApiTask);
-          const llmContent = JSON.stringify(tasks, null, 2);
-          return {
-            summary: `Found ${tasks.length} tasks.`,
-            llmContent,
-            returnDisplay: `Found ${tasks.length} tasks.`,
-          };
+          if (params.verbose) {
+            const tasks = data.map(this.toApiTask);
+            const llmContent = JSON.stringify(tasks, null, 2);
+            return {
+              summary: `Found ${tasks.length} tasks.`,
+              llmContent,
+              returnDisplay: `Found ${tasks.length} tasks.`,
+            };
+          } else {
+            const tableString = this.formatTasksAsTable(data);
+            return {
+              summary: `Found ${data.length} tasks.`,
+              llmContent: JSON.stringify(data.map(this.toApiTask), null, 2),
+              returnDisplay: tableString,
+            };
+          }
         }
 
         case 'get_task': {
-          const result = await this.shikiManagerTool.execute(
-            { subcommand: 'get_task', args: [params.taskId!] },
-            signal
-          );
+          const response = await fetch(`${apiUrl}/api/v1/tasks/${params.taskId}`, {
+            method: 'GET',
+            signal,
+          });
 
-          if (result.error || !result.llmContent) {
-            throw new Error(result.error?.message || 'Failed to get task');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error: ${response.status}`);
           }
 
-          const task = this.toApiTask(JSON.parse(result.llmContent as string).data);
+          const data = await response.json();
+          const task = this.toApiTask(data);
           const llmContent = JSON.stringify(task, null, 2);
           return {
             summary: `Fetched task ${task.id}`,
             llmContent,
-            returnDisplay: `Fetched task ${task.id}`,
+            returnDisplay: `Fetched task ${task.id}\nStatus: ${task.status}\nPrompt: ${task.prompt}`,
           };
         }
 
         case 'create_task': {
           updateOutput?.('⏳ Task creation initiated...');
           
-          // Build task definition object from params
           const taskDefinition: Record<string, unknown> = {
             prompt: params.prompt!,
             repo_origin: params.repo_origin!,
             branch: params.branch!,
           };
           
-          // Add optional parameters if present
           if (params.title) {
             taskDefinition.title = params.title;
           }
@@ -262,23 +376,26 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
             taskDefinition.working_dir_prefix = params.working_dir_prefix;
           }
           
-          // Pass the task definition as a JSON payload
-          const args = ['--json-payload', JSON.stringify(taskDefinition)];
-          
-          const result = await this.shikiManagerTool.execute(
-            { subcommand: 'create_task', args },
-            signal
-          );
+          const response = await fetch(`${apiUrl}/api/v1/tasks`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(taskDefinition),
+            signal,
+          });
 
-          if (result.error || !result.llmContent) {
-            throw new Error(result.error?.message || 'Failed to create task');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error: ${response.status}`);
           }
           
-          const task = this.toApiTask(JSON.parse(result.llmContent as string).data);
+          const data = await response.json();
+          const task = this.toApiTask(data);
           updateOutput?.(`✅ Task created with ID: ${task.id}`);
 
-          // --- WebSocket Implementation ---
-          const wsUrl = this.config.getShikiManagerApiUrl().replace(/^http/, 'ws') + `/api/v1/tasks/${task.id}/ws`;
+          // WebSocket subscription for real-time updates
+          const wsUrl = apiUrl.replace(/^http/, 'ws') + `/api/v1/tasks/${task.id}/ws`;
           const ws = new WebSocket(wsUrl);
           this.subscriptions.set(task.id, ws);
 
@@ -295,8 +412,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
               if (message.result) {
                 updateOutput?.(`[WS] ✨ Task ${task.id} result: ${JSON.stringify(message.result)}`);
               }
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (e) {
+            } catch (_e) {
               updateOutput?.(`[WS] Received raw message: ${data.toString()}`);
             }
           });
@@ -315,9 +431,43 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
           return {
             summary: `Created task ${task.id}`,
             llmContent,
-            returnDisplay: `Created task ${task.id}`,
+            returnDisplay: `Created task ${task.id}\nStatus: ${task.status}\nPrompt: ${task.prompt}`,
           };
         }
+
+        case 'list_services': {
+          const url = params.service_type
+            ? `${apiUrl}/api/v1/services?service_type=${params.service_type}`
+            : `${apiUrl}/api/v1/services`;
+
+          const response = await fetch(url, {
+            method: 'GET',
+            signal,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const llmContent = JSON.stringify(data, null, 2);
+          return {
+            summary: `Found ${data.length} services${params.service_type ? ` of type ${params.service_type}` : ''}.`,
+            llmContent,
+            returnDisplay: `Found ${data.length} services${params.service_type ? ` of type ${params.service_type}` : ''}.`,
+          };
+        }
+
+        default:
+          return {
+            error: {
+              message: `Unknown subcommand: ${params.subcommand}`,
+              type: ToolErrorType.INVALID_TOOL_PARAMS,
+            },
+            llmContent: `Unknown subcommand: ${params.subcommand}`,
+            returnDisplay: `❌ Unknown subcommand: ${params.subcommand}`,
+          };
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
