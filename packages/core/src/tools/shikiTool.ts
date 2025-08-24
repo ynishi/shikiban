@@ -10,6 +10,7 @@ import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import WebSocket from 'ws';
+import { execSync } from 'child_process';
 
 export interface Task {
   id: string;
@@ -56,6 +57,30 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
   static readonly Name: string = 'shiki_tool';
   private subscriptions = new Map<string, WebSocket>();
 
+  private getGitOrigin(): string | null {
+    try {
+      const origin = execSync('git config --get remote.origin.url', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+      return origin || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private getCurrentBranch(): string {
+    try {
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+      return branch || 'main';
+    } catch {
+      return 'main';
+    }
+  }
+
   constructor(private readonly config: Config) {
     super(
       ShikiTool.Name,
@@ -84,11 +109,11 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
           },
           repo_origin: {
             type: Type.STRING,
-            description: 'The URL of the Git repository to clone. Required for create_task.',
+            description: 'Optional: The URL of the Git repository to clone.',
           },
           branch: {
             type: Type.STRING,
-            description: 'The branch name to clone. Required for create_task.',
+            description: 'Optional: The branch name to clone.',
           },
           files: {
             type: Type.OBJECT,
@@ -140,12 +165,6 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
       case 'create_task':
         if (!params.prompt) {
           return 'Missing required parameter: prompt';
-        }
-        if (!params.repo_origin) {
-          return 'Missing required parameter: repo_origin';
-        }
-        if (!params.branch) {
-          return 'Missing required parameter: branch';
         }
         break;
       case 'get_task':
@@ -348,12 +367,22 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
         case 'create_task': {
           updateOutput?.('⏳ Task creation initiated...');
           
+          // Use provided values or git defaults
+          const repoOrigin = params.repo_origin || this.getGitOrigin();
+          const branch = params.branch || this.getCurrentBranch();
+          
           const taskDefinition: Record<string, unknown> = {
             prompt: params.prompt!,
-            repo_origin: params.repo_origin!,
-            branch: params.branch!,
+            metadata: params.metadata || {},
           };
           
+          // Always include repo_origin and branch for clarity
+          if (repoOrigin) {
+            taskDefinition.repo_origin = repoOrigin;
+          }
+          if (branch) {
+            taskDefinition.branch = branch;
+          }
           if (params.title) {
             taskDefinition.title = params.title;
           }
@@ -362,9 +391,6 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
           }
           if (params.local_repo_dir) {
             taskDefinition.local_repo_dir = params.local_repo_dir;
-          }
-          if (params.metadata) {
-            taskDefinition.metadata = params.metadata;
           }
           if (params.post_execution_check_command) {
             taskDefinition.post_execution_check_command = params.post_execution_check_command;
@@ -386,8 +412,21 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
           });
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP error: ${response.status}`);
+            let errorMessage = `HTTP error: ${response.status}`;
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                try {
+                  const errorData = JSON.parse(errorText);
+                  errorMessage = errorData.error || errorData.message || errorMessage;
+                } catch {
+                  errorMessage = errorText;
+                }
+              }
+            } catch {
+              // Failed to read response text
+            }
+            throw new Error(errorMessage);
           }
           
           const data = await response.json();
