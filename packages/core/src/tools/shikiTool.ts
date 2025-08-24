@@ -24,6 +24,10 @@ export interface ShikiToolParams {
   subcommand: 'create_task' | 'get_task' | 'list_tasks';
   prompt?: string;
   taskId?: string;
+  repo_origin?: string;
+  branch?: string;
+  keepWorkingDir?: boolean;
+  workingDirPrefix?: string;
 }
 
 /**
@@ -57,6 +61,22 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
             type: Type.STRING,
             description: 'The ID of the task to get. Required for `get_task`.',
           },
+          repo_origin: {
+            type: Type.STRING,
+            description: 'The URL of the Git repository to clone. Required for `create_task`.',
+          },
+          branch: {
+            type: Type.STRING,
+            description: 'The branch name to clone. Required for `create_task`.',
+          },
+          keepWorkingDir: {
+            type: Type.BOOLEAN,
+            description: 'Optional: Whether to keep the working directory after task completion. Defaults to false.',
+          },
+          workingDirPrefix: {
+            type: Type.STRING,
+            description: 'Optional: Prefix for the working directory name.',
+          },
         },
         required: ['subcommand'],
       },
@@ -77,6 +97,12 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
       case 'create_task':
         if (!params.prompt) {
           return 'Missing required parameter: prompt';
+        }
+        if (!params.repo_origin) {
+          return 'Missing required parameter: repo_origin';
+        }
+        if (!params.branch) {
+          return 'Missing required parameter: branch';
         }
         break;
       case 'get_task':
@@ -100,6 +126,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
     return `Executing Shiki command: ${params.subcommand}`;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toApiTask(data: any): Task {
     return {
       id: data.id,
@@ -137,6 +164,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
     }
 
     try {
+      // eslint-disable-next-line default-case
       switch (params.subcommand) {
         case 'list_tasks': {
           const result = await this.shikiManagerTool.execute(
@@ -178,8 +206,25 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
 
         case 'create_task': {
           updateOutput?.('⏳ Task creation initiated...');
+          
+          // Build args array with required and optional parameters
+          const args: string[] = [
+            '--prompt', params.prompt!,
+            '--repo-origin', params.repo_origin!,
+            '--branch', params.branch!
+          ];
+          
+          // Add optional parameters if present
+          if (params.keepWorkingDir === true) {
+            args.push('--keep-working-dir', 'true');
+          }
+          
+          if (params.workingDirPrefix) {
+            args.push('--working-dir-prefix', params.workingDirPrefix);
+          }
+          
           const result = await this.shikiManagerTool.execute(
-            { subcommand: 'create_task', args: [params.prompt!] },
+            { subcommand: 'create_task', args },
             signal
           );
 
@@ -208,6 +253,7 @@ export class ShikiTool extends BaseTool<ShikiToolParams, ToolResult> {
               if (message.result) {
                 updateOutput?.(`[WS] ✨ Task ${task.id} result: ${JSON.stringify(message.result)}`);
               }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               updateOutput?.(`[WS] Received raw message: ${data.toString()}`);
             }
