@@ -35,6 +35,7 @@ import { ClaudeCodeTool } from '../tools/claudeCodeTool.js';
 import { GitTool } from '../tools/gitTool.js';
 import { GitHubTool } from '../tools/githubTool.js';
 import { ShikiManagerTool } from '../tools/shikiManagerTool.js';
+import { ShikiTool } from '../tools/shikiTool.js';
 import { ComfyEditorTool } from '../tools/comfyEditorTool.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
@@ -786,7 +787,7 @@ export class Config {
     registerCoreTool(ClaudeCodeTool, this);
     registerCoreTool(GitTool, this);
     registerCoreTool(GitHubTool, this);
-    registerCoreTool(ShikiManagerTool, this);
+    registerCoreTool(ShikiTool, this);
     registerCoreTool(ComfyEditorTool, this);
 
     await registry.discoverAllTools();
