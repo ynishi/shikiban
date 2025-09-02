@@ -10,7 +10,14 @@ import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import {
+  BaseDeclarativeTool, // Changed from BaseTool
+  Icon,
+  ToolResult,
+  ToolInvocation, // Added
+  ToolLocation, // Added
+  ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
+} from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 
@@ -37,86 +44,32 @@ interface GitHubProcessResponse {
 }
 
 /**
- * Tool for executing GitHub CLI (gh) commands
- *
- * This tool provides a safe and robust interface to execute GitHub CLI commands
- * with proper error handling, timeout support, and process management.
- *
- * @example
- * ```typescript
- * const result = await github_tool('pr', ['list'], '/path/to/repo', 30000);
- * ```
+ * Represents an invocation of the GitHub CLI tool.
  */
-export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
-  static readonly Name: string = 'github_tool';
-  private static readonly DEFAULT_TIMEOUT = 60000; // 1 minute
-  private static readonly MAX_TIMEOUT = 600000; // 10 minutes
+class GitHubToolInvocation
+  implements ToolInvocation<GitHubToolParams, ToolResult>
+{
+  constructor(
+    public readonly params: GitHubToolParams,
+    private readonly config: Config,
+  ) {}
 
-  constructor(private readonly config: Config) {
-    super(
-      GitHubTool.Name,
-      'GitHub CLI',
-      'Executes GitHub CLI (gh) commands for repository management, pull requests, issues, and more.',
-      Icon.Terminal,
-      {
-        type: Type.OBJECT,
-        properties: {
-          command: {
-            type: Type.STRING,
-            description:
-              'The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo", "api").',
-          },
-          args: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description:
-              'An array of arguments to pass to the GitHub CLI subcommand.',
-          },
-          directory: {
-            type: Type.STRING,
-            description:
-              'Optional: The directory in which to execute the command. Defaults to the current working directory.',
-          },
-          timeout: {
-            type: Type.NUMBER,
-            description: `Optional timeout in milliseconds (default: ${GitHubTool.DEFAULT_TIMEOUT}, max: ${GitHubTool.MAX_TIMEOUT}).`,
-          },
-        },
-        required: ['command'],
-      },
-      false, // output is not markdown
-      true, // can update output (streaming)
-    );
-  }
-
-  validateToolParams(params: GitHubToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
-    if (!params.command || !params.command.trim()) {
-      return 'GitHub CLI command cannot be empty or just whitespace.';
-    }
-
-    if (params.timeout !== undefined) {
-      if (params.timeout <= 0) {
-        return 'Timeout must be a positive number.';
-      }
-      if (params.timeout > GitHubTool.MAX_TIMEOUT) {
-        return `Timeout cannot exceed ${GitHubTool.MAX_TIMEOUT / 1000 / 60} minutes (${GitHubTool.MAX_TIMEOUT}ms).`;
-      }
-    }
-
-    return null;
-  }
-
-  getDescription(params: GitHubToolParams): string {
-    const argsString = params.args ? ` ${params.args.join(' ')}` : '';
-    const directoryString = params.directory
-      ? ` in directory "${params.directory}"`
+  getDescription(): string {
+    const argsString = this.params.args ? ` ${this.params.args.join(' ')}` : '';
+    const directoryString = this.params.directory
+      ? ` in directory "${this.params.directory}"`
       : '';
-    return `Executing GitHub CLI command: "gh ${params.command}${argsString}"${directoryString}`;
+    return `Executing GitHub CLI command: "gh ${this.params.command}${argsString}"${directoryString}`;
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [];
+  }
+
+  shouldConfirmExecute(
+    _abortSignal: AbortSignal,
+  ): Promise<false | ToolCallConfirmationDetails> {
+    return Promise.resolve(false);
   }
 
   private killProcess(process: ChildProcess, pidOrPgid?: number): void {
@@ -275,24 +228,11 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
   }
 
   async execute(
-    params: GitHubToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return {
-        llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
-        returnDisplay: `❌ ${validationError}`,
-        error: {
-          message: validationError,
-          type: ToolErrorType.INVALID_TOOL_PARAMS,
-        },
-      };
-    }
-
     const processResponse = await this.executeGitHubCommand(
-      params,
+      this.params,
       signal,
       updateOutput,
     );
@@ -323,7 +263,7 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
       metadata,
     };
 
-    let returnDisplay = `✅ GitHub CLI command "gh ${params.command}" executed successfully\n\n`;
+    let returnDisplay = `✅ GitHub CLI command "gh ${this.params.command}" executed successfully\n\n`;
     if (processResponse.stdout) {
       returnDisplay +=
         '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
@@ -336,10 +276,92 @@ export class GitHubTool extends BaseTool<GitHubToolParams, ToolResult> {
     returnDisplay += `\n**Exit Code:** ${processResponse.exitCode}`;
 
     return {
-      summary: `GitHub CLI command "gh ${params.command}" executed in ${processResponse.executionTime}ms`,
+      summary: `GitHub CLI command "gh ${this.params.command}" executed in ${processResponse.executionTime}ms`,
       llmContent: JSON.stringify(result, null, 2),
       returnDisplay,
     };
+  }
+}
+
+/**
+ * Tool for executing GitHub CLI (gh) commands
+ *
+ * This tool provides a safe and robust interface to execute GitHub CLI commands
+ * with proper error handling, timeout support, and process management.
+ *
+ * @example
+ * ```typescript
+ * const result = await github_tool('pr', ['list'], '/path/to/repo', 30000);
+ * ```
+ */
+export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult> {
+  static readonly Name: string = 'github_tool';
+  public static readonly DEFAULT_TIMEOUT = 60000; // 1 minute // Changed from private
+  public static readonly MAX_TIMEOUT = 600000; // 10 minutes // Changed from private
+
+  constructor(private readonly config: Config) {
+    super(
+      GitHubTool.Name,
+      'GitHub CLI',
+      'Executes GitHub CLI (gh) commands for repository management, pull requests, issues, and more.',
+      Icon.Terminal,
+      {
+        type: Type.OBJECT,
+        properties: {
+          command: {
+            type: Type.STRING,
+            description:
+              'The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo", "api").',
+          },
+          args: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description:
+              'An array of arguments to pass to the GitHub CLI subcommand.',
+          },
+          directory: {
+            type: Type.STRING,
+            description:
+              'Optional: The directory in which to execute the command. Defaults to the current working directory.',
+          },
+          timeout: {
+            type: Type.NUMBER,
+            description: `Optional timeout in milliseconds (default: ${GitHubTool.DEFAULT_TIMEOUT}, max: ${GitHubTool.MAX_TIMEOUT}).`,
+          },
+        },
+        required: ['command'],
+      },
+      false, // output is not markdown
+      true, // can update output (streaming)
+    );
+  }
+
+  protected validateToolParams(params: GitHubToolParams): string | null {
+    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    if (errors) {
+      return errors;
+    }
+
+    if (!params.command || !params.command.trim()) {
+      return 'GitHub CLI command cannot be empty or just whitespace.';
+    }
+
+    if (params.timeout !== undefined) {
+      if (params.timeout <= 0) {
+        return 'Timeout must be a positive number.';
+      }
+      if (params.timeout > GitHubTool.MAX_TIMEOUT) {
+        return `Timeout cannot exceed ${GitHubTool.MAX_TIMEOUT / 1000 / 60} minutes (${GitHubTool.MAX_TIMEOUT}ms).`;
+      }
+    }
+
+    return null;
+  }
+
+  protected createInvocation(
+    params: GitHubToolParams,
+  ): ToolInvocation<GitHubToolParams, ToolResult> {
+    return new GitHubToolInvocation(params, this.config);
   }
 }
 

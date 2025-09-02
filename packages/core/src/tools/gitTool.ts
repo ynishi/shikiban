@@ -10,7 +10,14 @@ import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import {
+  BaseDeclarativeTool, // Changed from BaseTool
+  Icon,
+  ToolResult,
+  ToolInvocation, // Added
+  ToolLocation, // Added
+  ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
+} from './tools.js';
 import { Config } from '../config/config.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 
@@ -19,7 +26,7 @@ export interface GitToolParams {
   command: string;
   args?: string[];
   directory?: string;
-  timeout?: number; // Optional: similar to ClaudeCodeTool
+  timeout?: number;
 }
 
 // Define the structure of the response from the Git process
@@ -33,79 +40,30 @@ interface GitProcessResponse {
 }
 
 /**
- * A tool for executing Git commands.
+ * Represents an invocation of the Git tool.
  */
-export class GitTool extends BaseTool<GitToolParams, ToolResult> {
-  static readonly Name: string = 'git_tool';
-  private static readonly DEFAULT_TIMEOUT = 60000; // 1 minute
-  private static readonly MAX_TIMEOUT = 300000; // 5 minutes
+class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
+  constructor(
+    public readonly params: GitToolParams,
+    private readonly config: Config,
+  ) {}
 
-  constructor(private readonly config: Config) {
-    super(
-      GitTool.Name,
-      'Git',
-      'Executes Git commands robustly and securely.',
-      Icon.Terminal, // Or a more specific Git icon if available
-      {
-        type: Type.OBJECT,
-        properties: {
-          command: {
-            type: Type.STRING,
-            description:
-              'The Git subcommand to execute (e.g., "status", "add", "commit").',
-          },
-          args: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: 'An array of arguments to pass to the Git subcommand.',
-          },
-          directory: {
-            type: Type.STRING,
-            description:
-              'Optional: The directory in which to execute the Git command. Defaults to the current working directory.',
-          },
-          timeout: {
-            type: Type.NUMBER,
-            description: `Optional timeout in milliseconds (default: ${GitTool.DEFAULT_TIMEOUT}).`,
-          },
-        },
-        required: ['command'],
-      },
-      false, // output is not markdown
-      true, // can update output (streaming)
-    );
-  }
-
-  validateToolParams(params: GitToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
-    if (!params.command || !params.command.trim()) {
-      return 'Git command cannot be empty or just whitespace.';
-    }
-
-    if (params.timeout !== undefined) {
-      if (params.timeout <= 0) {
-        return 'Timeout must be a positive number.';
-      }
-      if (params.timeout > GitTool.MAX_TIMEOUT) {
-        return `Timeout cannot exceed ${GitTool.MAX_TIMEOUT / 1000 / 60} minutes (${GitTool.MAX_TIMEOUT}ms).`;
-      }
-    }
-
-    // TODO: Add more specific validation for Git commands/args if necessary
-
-    return null;
-  }
-
-  getDescription(params: GitToolParams): string {
-    const argsString = params.args ? ` ${params.args.join(' ')}` : '';
-    const directoryString = params.directory
-      ? ` in directory "${params.directory}"`
+  getDescription(): string {
+    const argsString = this.params.args ? ` ${this.params.args.join(' ')}` : '';
+    const directoryString = this.params.directory
+      ? ` in directory "${this.params.directory}"`
       : '';
-    return `Executing Git command: "git ${params.command}${argsString}"${directoryString}`;
+    return `Executing Git command: "git ${this.params.command}${argsString}"${directoryString}`;
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [];
+  }
+
+  shouldConfirmExecute(
+    _abortSignal: AbortSignal,
+  ): Promise<false | ToolCallConfirmationDetails> {
+    return Promise.resolve(false);
   }
 
   private killProcess(process: ChildProcess, pidOrPgid?: number): void {
@@ -256,24 +214,11 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
   }
 
   async execute(
-    params: GitToolParams,
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return {
-        llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
-        returnDisplay: `❌ ${validationError}`,
-        error: {
-          message: validationError,
-          type: ToolErrorType.INVALID_TOOL_PARAMS,
-        },
-      };
-    }
-
     const processResponse = await this.executeGitCommand(
-      params,
+      this.params,
       signal,
       updateOutput,
     );
@@ -304,7 +249,7 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
       metadata,
     };
 
-    let returnDisplay = `✅ Git command "git ${params.command}" executed successfully\n\n`;
+    let returnDisplay = `✅ Git command "git ${this.params.command}" executed successfully\n\n`;
     if (processResponse.stdout) {
       returnDisplay +=
         '**STDOUT:**\n```\n' + processResponse.stdout + '\n```\n';
@@ -317,9 +262,84 @@ export class GitTool extends BaseTool<GitToolParams, ToolResult> {
     returnDisplay += `\n**Exit Code:** ${processResponse.exitCode}`;
 
     return {
-      summary: `Git command "git ${params.command}" executed in ${processResponse.executionTime}ms`,
+      summary: `Git command "git ${this.params.command}" executed in ${processResponse.executionTime}ms`,
       llmContent: JSON.stringify(result, null, 2),
       returnDisplay,
     };
+  }
+}
+
+/**
+ * A tool for executing Git commands.
+ */
+export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
+  static readonly Name: string = 'git_tool';
+  public static readonly DEFAULT_TIMEOUT = 60000; // 1 minute // Changed from private
+  public static readonly MAX_TIMEOUT = 300000; // 5 minutes // Changed from private
+
+  constructor(private readonly config: Config) {
+    super(
+      GitTool.Name,
+      'Git',
+      'Executes Git commands robustly and securely.',
+      Icon.Terminal, // Or a more specific Git icon if available
+      {
+        type: Type.OBJECT,
+        properties: {
+          command: {
+            type: Type.STRING,
+            description:
+              'The Git subcommand to execute (e.g., "status", "add", "commit").',
+          },
+          args: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'An array of arguments to pass to the Git subcommand.',
+          },
+          directory: {
+            type: Type.STRING,
+            description:
+              'Optional: The directory in which to execute the Git command. Defaults to the current working directory.',
+          },
+          timeout: {
+            type: Type.NUMBER,
+            description: `Optional timeout in milliseconds (default: ${GitTool.DEFAULT_TIMEOUT}).`,
+          },
+        },
+        required: ['command'],
+      },
+      false, // output is not markdown
+      true, // can update output (streaming)
+    );
+  }
+
+  protected validateToolParams(params: GitToolParams): string | null {
+    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    if (errors) {
+      return errors;
+    }
+
+    if (!params.command || !params.command.trim()) {
+      return 'Git command cannot be empty or just whitespace.';
+    }
+
+    if (params.timeout !== undefined) {
+      if (params.timeout <= 0) {
+        return 'Timeout must be a positive number.';
+      }
+      if (params.timeout > GitTool.MAX_TIMEOUT) {
+        return `Timeout cannot exceed ${GitTool.MAX_TIMEOUT / 1000 / 60} minutes (${GitTool.MAX_TIMEOUT}ms).`;
+      }
+    }
+
+    // TODO: Add more specific validation for Git commands/args if necessary
+
+    return null;
+  }
+
+  protected createInvocation(
+    params: GitToolParams,
+  ): ToolInvocation<GitToolParams, ToolResult> {
+    return new GitToolInvocation(params, this.config);
   }
 }
