@@ -9,6 +9,7 @@ import { ComfyEditorTool, ComfyEditorToolParams } from './comfyEditorTool.js';
 import { executeWorkflowUpdates } from './comfy-editor/tool.js';
 import { Config } from '../config/config.js';
 import { ToolErrorType } from './tool-error.js';
+import { ToolInvocation, ToolCallConfirmationDetails, ToolResult } from './tools.js'; // Ensure ToolResult is imported
 
 vi.mock('./comfy-editor/tool.js');
 
@@ -34,7 +35,9 @@ describe('ComfyEditorTool', () => {
       ],
     };
 
-    const result = await tool.execute(params);
+    const invocation: ToolInvocation<ComfyEditorToolParams, ToolResult> = tool.build(params);
+    const signal = new AbortController().signal; // Create a mock AbortSignal
+    const result = await invocation.execute(signal);
 
     expect(executeWorkflowUpdates).toHaveBeenCalledTimes(1);
     expect(executeWorkflowUpdates).toHaveBeenCalledWith(
@@ -59,7 +62,9 @@ describe('ComfyEditorTool', () => {
       updates: [],
     };
 
-    const result = await tool.execute(params);
+    const invocation: ToolInvocation<ComfyEditorToolParams, ToolResult> = tool.build(params);
+    const signal = new AbortController().signal; // Create a mock AbortSignal
+    const result = await invocation.execute(signal);
 
     expect(executeWorkflowUpdates).toHaveBeenCalledTimes(1);
     expect(result.error).toBeDefined();

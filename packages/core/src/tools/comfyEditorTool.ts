@@ -7,7 +7,14 @@
 import { Type } from '@google/genai';
 import { executeWorkflowUpdates } from './comfy-editor/tool.js';
 import { ToolErrorType } from './tool-error.js';
-import { BaseTool, Icon, ToolResult } from './tools.js';
+import {
+  BaseDeclarativeTool, // Changed from BaseTool
+  Icon,
+  ToolResult,
+  ToolInvocation, // Added
+  ToolLocation, // Added
+  ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
+} from './tools.js';
 import { Config } from '../config/config.js';
 
 export interface ComfyEditorToolParams {
@@ -23,7 +30,57 @@ export interface ComfyEditorToolParams {
   }>;
 }
 
-export class ComfyEditorTool extends BaseTool<
+/**
+ * Represents an invocation of the ComfyEditor tool.
+ */
+class ComfyEditorToolInvocation
+  implements ToolInvocation<ComfyEditorToolParams, ToolResult>
+{
+  constructor(
+    public readonly params: ComfyEditorToolParams,
+    private readonly config: Config,
+  ) {}
+
+  getDescription(): string {
+    return `Editing ComfyUI workflow: ${this.params.file_path}`;
+  }
+
+  toolLocations(): ToolLocation[] {
+    return [];
+  }
+
+  shouldConfirmExecute(
+    _abortSignal: AbortSignal,
+  ): Promise<false | ToolCallConfirmationDetails> {
+    return Promise.resolve(false);
+  }
+
+  async execute(
+    signal: AbortSignal,
+    updateOutput?: (output: string) => void,
+  ): Promise<ToolResult> {
+    try {
+      await executeWorkflowUpdates(this.params.file_path, this.params.updates);
+      const successMessage = '✅ ComfyUI workflow updated successfully.';
+      return {
+        llmContent: successMessage,
+        returnDisplay: successMessage,
+      };
+    } catch (e) {
+      const err = e as Error;
+      return {
+        llmContent: `Error: ${err.message}`,
+        returnDisplay: `❌ Error updating ComfyUI workflow: ${err.message}`,
+        error: {
+          message: err.message,
+          type: ToolErrorType.UNKNOWN,
+        },
+      };
+    }
+  }
+}
+
+export class ComfyEditorTool extends BaseDeclarativeTool<
   ComfyEditorToolParams,
   ToolResult
 > {
@@ -82,24 +139,9 @@ export class ComfyEditorTool extends BaseTool<
     );
   }
 
-  async execute(params: ComfyEditorToolParams): Promise<ToolResult> {
-    try {
-      await executeWorkflowUpdates(params.file_path, params.updates);
-      const successMessage = '✅ ComfyUI workflow updated successfully.';
-      return {
-        llmContent: successMessage,
-        returnDisplay: successMessage,
-      };
-    } catch (e) {
-      const err = e as Error;
-      return {
-        llmContent: `Error: ${err.message}`,
-        returnDisplay: `❌ Error updating ComfyUI workflow: ${err.message}`,
-        error: {
-          message: err.message,
-          type: ToolErrorType.UNKNOWN,
-        },
-      };
-    }
+  protected createInvocation(
+    params: ComfyEditorToolParams,
+  ): ToolInvocation<ComfyEditorToolParams, ToolResult> {
+    return new ComfyEditorToolInvocation(params, this.config);
   }
 }
