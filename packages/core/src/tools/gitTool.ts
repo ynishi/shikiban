@@ -341,7 +341,15 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
       }
     }
 
-    // TODO: Add more specific validation for Git commands/args if necessary
+    // Validate unsafe git add commands for safety
+    if (params.command === 'add' && params.args) {
+      const unsafeAddPatterns = ['.', '-A', '--all'];
+      for (const arg of params.args) {
+        if (unsafeAddPatterns.includes(arg)) {
+          return `Git add with "${arg}" is disallowed for safety. Please add files explicitly by name.`;
+        }
+      }
+    }
 
     return null;
   }

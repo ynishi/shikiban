@@ -248,4 +248,76 @@ describe('GitTool', () => {
       expect(result.llmContent).toContain('[main abc1234] Fix: resolved issue #123');
     });
   });
+
+  describe('validateToolParams', () => {
+    it('should reject git add with . (dot)', () => {
+      const params = {
+        command: 'add',
+        args: ['.'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBe('Git add with "." is disallowed for safety. Please add files explicitly by name.');
+    });
+
+    it('should reject git add with -A flag', () => {
+      const params = {
+        command: 'add',
+        args: ['-A'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBe('Git add with "-A" is disallowed for safety. Please add files explicitly by name.');
+    });
+
+    it('should reject git add with --all flag', () => {
+      const params = {
+        command: 'add',
+        args: ['--all'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBe('Git add with "--all" is disallowed for safety. Please add files explicitly by name.');
+    });
+
+    it('should reject git add with . even when combined with other args', () => {
+      const params = {
+        command: 'add',
+        args: ['-v', '.', '--no-ignore'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBe('Git add with "." is disallowed for safety. Please add files explicitly by name.');
+    });
+
+    it('should accept git add with specific file names', () => {
+      const params = {
+        command: 'add',
+        args: ['my-file.ts', 'another-file.js'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBeNull();
+    });
+
+    it('should accept git add with paths containing dots', () => {
+      const params = {
+        command: 'add',
+        args: ['./src/file.ts', '../lib/other.js'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBeNull();
+    });
+
+    it('should accept other git commands without restriction', () => {
+      const params = {
+        command: 'status',
+        args: ['--all'],
+      };
+      
+      const validationError = gitTool['validateToolParams'](params);
+      expect(validationError).toBeNull();
+    });
+  });
 });
