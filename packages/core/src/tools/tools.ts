@@ -573,6 +573,7 @@ export enum ToolConfirmationOutcome {
 export enum Icon {
   FileSearch = 'fileSearch',
   Folder = 'folder',
+  Forbidden = 'forbidden',
   Globe = 'globe',
   Hammer = 'hammer',
   LightBulb = 'lightBulb',
