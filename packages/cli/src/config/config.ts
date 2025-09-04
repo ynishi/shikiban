@@ -53,6 +53,7 @@ export interface CliArgs {
   debug: boolean | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
+  persona: string | undefined;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -103,6 +104,11 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'string',
           description:
             'Execute the provided prompt and continue in interactive mode',
+        })
+        .option('persona', {
+          type: 'string',
+          description: 'Selects the agent persona to use.',
+          choices: ['mai-yui', 'alex-jordan']
         })
         .option('sandbox', {
           alias: 's',
@@ -517,7 +523,7 @@ export async function loadCliConfig(
       process.exit(4);
     }
   } else {
-    baseSystemPrompt = getCoreSystemPrompt();
+    baseSystemPrompt = getCoreSystemPrompt({ persona: argv.persona });
   }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
