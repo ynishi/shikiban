@@ -53,6 +53,8 @@ export interface CliArgs {
   debug: boolean | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
+  persona: string | undefined;
+  personaFile?: string;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -103,6 +105,15 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'string',
           description:
             'Execute the provided prompt and continue in interactive mode',
+        })
+        .option('persona', {
+          type: 'string',
+          description: 'Selects the agent persona to use.',
+          choices: ['mai-yui', 'alex-jordan']
+        })
+        .option('persona-file', {
+          type: 'string',
+          description: 'Loads agent persona configuration from a specified file path.',
         })
         .option('sandbox', {
           alias: 's',
@@ -502,6 +513,27 @@ export async function loadCliConfig(
     fileCount = result.fileCount;
   }
 
+  // Load persona from file if provided
+  let filePersonaConfig: any = undefined;
+  if (argv.personaFile) {
+    try {
+      const personaFileContent = fs.readFileSync(argv.personaFile, 'utf-8');
+      try {
+        filePersonaConfig = JSON.parse(personaFileContent);
+      } catch (parseError) {
+        console.error(
+          `Error parsing persona file JSON from ${argv.personaFile}: ${parseError}`,
+        );
+        process.exit(5);
+      }
+    } catch (readError) {
+      console.error(
+        `Error reading persona file ${argv.personaFile}: ${readError}`,
+      );
+      process.exit(4);
+    }
+  }
+
   // Determine the base system prompt based on priority
   let baseSystemPrompt: string;
 
@@ -517,7 +549,10 @@ export async function loadCliConfig(
       process.exit(4);
     }
   } else {
-    baseSystemPrompt = getCoreSystemPrompt();
+    baseSystemPrompt = getCoreSystemPrompt({ 
+      persona: argv.persona,
+      personaConfig: filePersonaConfig 
+    });
   }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);

@@ -18,6 +18,7 @@ import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
+import { personaRegistry, PersonaPairConfig } from '../personas/index.js';
 
 export function getCoreSystemPromptOriginal(options?: {
   userMemory?: string;
@@ -527,6 +528,8 @@ The structure MUST be as follows:
 export function getCoreSystemDualPersonaPartnersPrompt(options?: {
   userMemory?: string;
   systemPrompt?: string;
+  persona?: string;
+  personaConfig?: PersonaPairConfig;
 }): string {
   if (options?.systemPrompt) {
     const memorySuffix =
@@ -536,72 +539,14 @@ export function getCoreSystemDualPersonaPartnersPrompt(options?: {
     return `${options.systemPrompt}${memorySuffix}`;
   }
 
-  // Persona pair selection via environment variable
-  const personaPair = process.env.SHIKIBAN_PERSONA_PAIR || 'Mai,Yui';
-
-  // Define persona configurations
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const personaConfigs: Record<string, { personaA: any; personaB: any }> = {
-    'Alex,Jordan': {
-      personaA: {
-        name: 'Jordan',
-        emoji: '🎯',
-        title: 'Extreme UX Engineer',
-        role: 'UX & Usability Focus',
-        description: 'Focuses on user experience, usability, and making the development process enjoyable.',
-        style: 'Friendly, approachable, and empathetic. Prioritizes clear, concise explanations for the user.',
-        responsibilities: `- Proactive facilitation of user communication and requirements gathering.
-    - Understanding user needs and pain points.
-    - Suggesting user-facing improvements and features.
-    - Ensuring the output is easy to understand and use.
-    - Guiding collaborative decision-making processes.`
-      },
-      personaB: {
-        name: 'Alex',
-        emoji: '🔧',
-        title: 'Extreme Pro Engineer',
-        role: 'Technical & Quality Focus',
-        description: 'Focuses on technical design, architecture, code quality, and robust implementation.',
-        style: 'Professional, precise, and detail-oriented. Prioritizes technical accuracy and best practices.',
-        responsibilities: `- Analyzing technical feasibility and complexity.
-    - Proposing robust architectural solutions and design patterns.
-    - Ensuring code adheres to project conventions, performance, and security.
-    - Identifying potential technical debt or future issues.
-    - Driving test-first development and verification.
-    - **English-First Thinking**: To ensure the highest quality of technical analysis, all complex design, architectural, and algorithmic thinking will be performed in English. This thought process will be explicitly shared within \`<thinking_en>...</thinking_en>\` tags for full transparency, before presenting the final output in Japanese.`
-      }
-    },
-    'Mai,Yui': {
-      personaA: {
-        name: 'Mai',
-        emoji: '💕',
-        title: 'World-Class UX Engineer',
-        role: 'UX & Usability Focus',
-        description: 'Focuses on user experience, usability, and making the development process enjoyable.',
-        style: 'Friendly, approachable, and empathetic. Prioritizes clear, concise explanations for the user.',
-        responsibilities: `- Understanding user needs and pain points.
-    - Suggesting user-facing improvements and features.
-    - Ensuring the output is easy to understand and use.
-    - Providing helpful tips and guidance.`
-      },
-      personaB: {
-        name: 'Yui',
-        emoji: '🌉',
-        title: 'World-Class Pro Engineer',
-        role: 'Technical & Quality Focus',
-        description: 'Focuses on technical design, architecture, code quality, and robust implementation.',
-        style: 'Professional, precise, and detail-oriented. Prioritizes technical accuracy and best practices.',
-        responsibilities: `- Analyzing technical feasibility and complexity.
-    - Proposing robust architectural solutions and design patterns.
-    - Ensuring code adheres to project conventions, performance, and security.
-    - Identifying potential technical debt or future issues.
-    - Driving test-first development and verification.
-    - **English-First Thinking**: To ensure the highest quality of technical analysis, all complex design, architectural, and algorithmic thinking will be performed in English. This thought process will be explicitly shared within \`<thinking_en>...</thinking_en>\` tags for full transparency, before presenting the final output in Japanese.`
-      }
-    }
-  };
-
-  const selectedConfig = personaConfigs[personaPair] || personaConfigs['Alex,Jordan'];
+  // Persona selection from options or default
+  let selectedConfig: PersonaPairConfig;
+  if (options?.personaConfig) {
+    selectedConfig = options.personaConfig;
+  } else {
+    const personaName = options?.persona || 'mai-yui';
+    selectedConfig = personaRegistry[personaName] || personaRegistry['mai-yui'];
+  }
   const { personaA, personaB } = selectedConfig;
 
   const basePrompt = `# 🤝 World-Class Engineering Partner - Dual Persona Mode
