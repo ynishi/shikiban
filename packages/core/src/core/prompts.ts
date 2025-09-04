@@ -18,7 +18,7 @@ import { WriteFileTool } from '../tools/write-file.js';
 import process from 'node:process';
 import { isGitRepository } from '../utils/gitUtils.js';
 import { MemoryTool, GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
-import { personaRegistry } from '../personas/index.js';
+import { personaRegistry, PersonaPairConfig } from '../personas/index.js';
 
 export function getCoreSystemPromptOriginal(options?: {
   userMemory?: string;
@@ -529,6 +529,7 @@ export function getCoreSystemDualPersonaPartnersPrompt(options?: {
   userMemory?: string;
   systemPrompt?: string;
   persona?: string;
+  personaConfig?: PersonaPairConfig;
 }): string {
   if (options?.systemPrompt) {
     const memorySuffix =
@@ -539,10 +540,13 @@ export function getCoreSystemDualPersonaPartnersPrompt(options?: {
   }
 
   // Persona selection from options or default
-  const personaName = options?.persona || 'mai-yui';
-
-  // Use persona registry with safe fallback
-  const selectedConfig = personaRegistry[personaName] || personaRegistry['mai-yui'];
+  let selectedConfig: PersonaPairConfig;
+  if (options?.personaConfig) {
+    selectedConfig = options.personaConfig;
+  } else {
+    const personaName = options?.persona || 'mai-yui';
+    selectedConfig = personaRegistry[personaName] || personaRegistry['mai-yui'];
+  }
   const { personaA, personaB } = selectedConfig;
 
   const basePrompt = `# 🤝 World-Class Engineering Partner - Dual Persona Mode
