@@ -101,7 +101,16 @@ class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
     );
 
     return new Promise<GitProcessResponse>((resolve) => {
-      const commandArgs = [params.command, ...(params.args || [])];
+      let commandArgs: string[];
+      
+      // Handle case where command is 'git'
+      if (params.command === 'git' && params.args && params.args.length > 0) {
+        // Use first arg as the actual git command, rest as arguments
+        commandArgs = params.args;
+      } else {
+        // Standard case: use command as git subcommand
+        commandArgs = [params.command, ...(params.args || [])];
+      }
 
       console.log(`[GitTool] Spawning git with args:`, commandArgs);
       const isWindows = os.platform() === 'win32';
@@ -332,7 +341,15 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
       }
     }
 
-    // TODO: Add more specific validation for Git commands/args if necessary
+    // Validate unsafe git add commands for safety
+    if (params.command === 'add' && params.args) {
+      const unsafeAddPatterns = ['.', '-A', '--all'];
+      for (const arg of params.args) {
+        if (unsafeAddPatterns.includes(arg)) {
+          return `Git add with "${arg}" is disallowed for safety. Please add files explicitly by name.`;
+        }
+      }
+    }
 
     return null;
   }
