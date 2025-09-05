@@ -255,6 +255,7 @@ export class Turn {
                   : 'Agreement requested',
               },
             };
+            continue;
           } else {
             yield { type: GeminiEventType.Content, value: text };
           }

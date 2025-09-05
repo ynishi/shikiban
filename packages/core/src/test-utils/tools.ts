@@ -7,7 +7,7 @@
 import { vi } from 'vitest';
 import {
   BaseTool,
-  Icon,
+  Kind,
   ToolCallConfirmationDetails,
   ToolResult,
 } from '../tools/tools.js';
@@ -29,7 +29,7 @@ export class MockTool extends BaseTool<{ [key: string]: unknown }, ToolResult> {
       properties: { param: { type: Type.STRING } },
     },
   ) {
-    super(name, displayName ?? name, description, Icon.Hammer, params);
+    super(name, displayName ?? name, description, Kind.Edit, params);
   }
 
   async execute(

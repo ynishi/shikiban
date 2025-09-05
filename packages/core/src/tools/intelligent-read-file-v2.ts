@@ -7,7 +7,7 @@
 import path from 'path';
 import { glob } from 'glob';
 import { SchemaValidator } from '../utils/schemaValidator.js';
-import { BaseTool, Icon, ToolLocation, ToolResult } from './tools.js';
+import { BaseTool, Kind, ToolLocation, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import {
   processSingleFileContent,
@@ -43,7 +43,7 @@ export class IntelligentReadTool extends BaseTool<
       IntelligentReadTool.Name,
       'IntelligentRead',
       'Reads file content by intelligently resolving partial paths or file names. Can find files using absolute paths, relative paths, or just file names.',
-      Icon.FileSearch,
+      Kind.Search,
       {
         properties: {
           pathHint: {

@@ -8,7 +8,7 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import { 
   BaseDeclarativeTool, // Changed from BaseTool
-  Icon,
+  Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
@@ -437,7 +437,7 @@ export class ShikiTool extends BaseDeclarativeTool<ShikiToolParams, ToolResult> 
       ShikiTool.Name,
       'Shiki',
       'A tool to create and manage tasks in the Shiki system.',
-      Icon.Hammer,
+      Kind.Edit,
       {
         type: Type.OBJECT,
         properties: {

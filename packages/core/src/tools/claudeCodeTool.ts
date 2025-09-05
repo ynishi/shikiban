@@ -10,7 +10,7 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool,
-  Icon,
+  Kind,
   ToolResult,
   ToolInvocation,
   ToolLocation,
@@ -353,7 +353,7 @@ export class ClaudeCodeTool extends BaseDeclarativeTool< // Changed from BaseToo
       ClaudeCodeTool.Name,
       'ClaudeCode',
       'Executes a prompt using the Claude Code CLI to perform complex code analysis, generation, and manipulation.',
-      Icon.Terminal,
+      Kind.Execute,
       {
         type: Type.OBJECT,
         properties: {

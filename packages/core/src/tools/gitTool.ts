@@ -12,7 +12,7 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
-  Icon,
+  Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
@@ -291,7 +291,7 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
       GitTool.Name,
       'Git',
       'Executes Git commands robustly and securely.',
-      Icon.Terminal, // Or a more specific Git icon if available
+      Kind.Execute, // Or a more specific Git icon if available
       {
         type: Type.OBJECT,
         properties: {

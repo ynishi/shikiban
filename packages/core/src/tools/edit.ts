@@ -10,7 +10,7 @@ import * as Diff from 'diff';
 import {
   BaseDeclarativeTool,
   BaseToolInvocation,
-  Icon,
+  Kind,
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
   ToolEditConfirmationDetails,
@@ -524,7 +524,7 @@ export class EditTool
       EditTool.Name,
       'Edit',
       `[DEPRECATED] DO NOT USE. This tool is unreliable and will be removed. Use the 'claude_code' tool for all file modifications. This tool is for legacy reference only and its use is strictly forbidden.`,
-      Icon.Forbidden,
+      Kind.Other,
       {
         properties: {
           file_path: {

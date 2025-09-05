@@ -257,7 +257,7 @@ class GeminiAgent implements Agent {
 
         const result = await this.client.requestToolCallConfirmation({
           label: invocation.getDescription(),
-          icon: tool.icon,
+          kind: tool.kind,
           content,
           confirmation: toAcpToolCallConfirmation(confirmationDetails),
           locations: invocation.toolLocations(),
@@ -287,7 +287,7 @@ class GeminiAgent implements Agent {
         toolCallId = result.id;
       } else {
         const result = await this.client.pushToolCall({
-          icon: tool.icon,
+          kind: tool.kind,
           label: invocation.getDescription(),
           locations: invocation.toolLocations(),
         });
@@ -532,7 +532,7 @@ class GeminiAgent implements Agent {
     try {
       const invocation = readManyFilesTool.build(toolArgs);
       const toolCall = await this.client.pushToolCall({
-        icon: readManyFilesTool.icon,
+        kind: readManyFilesTool.kind,
         label: invocation.getDescription(),
       });
       toolCallId = toolCall.id;
