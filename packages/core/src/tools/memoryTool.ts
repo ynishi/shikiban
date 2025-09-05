@@ -9,7 +9,7 @@ import {
   ToolResult,
   ToolEditConfirmationDetails,
   ToolConfirmationOutcome,
-  Icon,
+  Kind,
 } from './tools.js';
 import { FunctionDeclaration, Type } from '@google/genai';
 import * as fs from 'fs/promises';
@@ -122,7 +122,7 @@ export class MemoryTool
       MemoryTool.Name,
       'Save Memory',
       memoryToolDescription,
-      Icon.LightBulb,
+      Kind.Think,
       memoryToolSchemaData.parameters as Record<string, unknown>,
     );
   }

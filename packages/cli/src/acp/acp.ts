@@ -6,7 +6,7 @@
 
 /* ACP defines a schema for a simple (experimental) JSON-RPC protocol that allows GUI applications to interact with agents. */
 
-import { Icon } from '@google/gemini-cli-core';
+import { Kind } from '@google/gemini-cli-core';
 import { WritableStream, ReadableStream } from 'node:stream/web';
 
 export class ClientConnection implements Client {
@@ -352,7 +352,7 @@ export interface StreamAssistantMessageChunkParams {
 export interface RequestToolCallConfirmationParams {
   confirmation: ToolCallConfirmation;
   content?: ToolCallContent | null;
-  icon: Icon;
+  kind: Kind;
   label: string;
   locations?: ToolCallLocation[];
 }
@@ -364,7 +364,7 @@ export interface ToolCallLocation {
 
 export interface PushToolCallParams {
   content?: ToolCallContent | null;
-  icon: Icon;
+  kind: Kind;
   label: string;
   locations?: ToolCallLocation[];
 }

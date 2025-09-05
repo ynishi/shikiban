@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { BaseTool, Icon, ToolResult, ToolLocation } from './tools.js';
+import { BaseTool, Kind, ToolResult, ToolLocation } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
@@ -75,7 +75,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       LSTool.Name,
       'ReadFolder',
       'Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.',
-      Icon.Folder,
+      Kind.Read,
       {
         properties: {
           path: {

@@ -9,7 +9,7 @@ import { executeWorkflowUpdates } from './comfy-editor/tool.js';
 import { ToolErrorType } from './tool-error.js';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
-  Icon,
+  Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
@@ -92,7 +92,7 @@ export class ComfyEditorTool extends BaseDeclarativeTool<
       'ComfyEditor',
       // TODO(b/12345): Clarify that 'nodeTitle' refers to the user-set 'title' property in the JSON, which may not exist by default. The tool should be improved to fall back to other identifiers like node ID or properties['Node name for S&R'].
       'Programmatically edits a ComfyUI workflow JSON file by applying a series of updates.',
-      Icon.Pencil,
+      Kind.Edit,
       {
         type: Type.OBJECT,
         properties: {

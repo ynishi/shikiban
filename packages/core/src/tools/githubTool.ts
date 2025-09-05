@@ -12,7 +12,7 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
-  Icon,
+  Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
@@ -304,7 +304,7 @@ export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult
       GitHubTool.Name,
       'GitHub CLI',
       'Executes GitHub CLI (gh) commands for repository management, pull requests, issues, and more.',
-      Icon.Terminal,
+      Kind.Execute,
       {
         type: Type.OBJECT,
         properties: {
