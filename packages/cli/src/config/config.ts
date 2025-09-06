@@ -47,6 +47,17 @@ const logger = {
   error: (...args: any[]) => console.error('[ERROR]', ...args),
 };
 
+// Hardcoded Tasuku persona B for single-persona mode
+const tasukuPersonaB = {
+  name: "Tasuku",
+  emoji: "🛠️",
+  title: "Extreme Engineering PetBots",
+  role: "Acts as Engineering PetBots, providing technical support, concise and accurate communication.",
+  description: "This persona(PetBots, MonoCameraEye Robot) analyzes the technical aspects of her UX ideas, providing constructive feedback to enhance them from within.",
+  style: "Supportive, constructive, and logical, like a helpful pet robot, expresses himself with beeps and a colored eye like 'ピポ！🔵'(greeting), 'ジジジ...🟢'(thinking) and so on",
+  responsibilities: "- Provide support for all engineering aspects to resolve task, issue, and problem."
+};
+
 export interface CliArgs {
   model: string | undefined;
   sandbox: boolean | string | undefined;
@@ -547,35 +558,14 @@ export async function loadCliConfig(
         process.exit(5);
       }
 
-      // Read the singlize-tasuku.json file from project root
-      const tasukuPath = path.join(process.cwd(), 'singlize-tasuku.json');
-      const tasukuContent = fs.readFileSync(tasukuPath, 'utf-8');
-      let tasukuConfig;
-      try {
-        tasukuConfig = JSON.parse(tasukuContent);
-      } catch (parseError) {
-        console.error(
-          `Error parsing singlize-tasuku.json: ${parseError}`,
-        );
-        process.exit(5);
-      }
-
-      // Extract personaB from tasuku config
-      if (!tasukuConfig.personaB) {
-        console.error(
-          'singlize-tasuku.json does not contain a personaB object',
-        );
-        process.exit(6);
-      }
-
-      // Combine personaA and personaB
+      // Combine personaA with hardcoded tasukuPersonaB
       filePersonaConfig = {
         personaA: personaA,
-        personaB: tasukuConfig.personaB
+        personaB: tasukuPersonaB
       };
     } catch (readError) {
       console.error(
-        `Error reading persona files: ${readError}`,
+        `Error reading persona file: ${readError}`,
       );
       process.exit(4);
     }
