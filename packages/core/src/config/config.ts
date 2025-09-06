@@ -206,6 +206,7 @@ export interface ConfigParameters {
   chatCompression?: ChatCompressionSettings;
   interactive?: boolean;
   shikiManagerApiUrl?: string;
+  authMethod?: AuthType;
 }
 
 export class Config {
@@ -273,6 +274,7 @@ export class Config {
   private readonly interactive: boolean;
   private initialized: boolean = false;
   private readonly shikiManagerApiUrl: string;
+  private readonly authMethod: AuthType | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -343,6 +345,7 @@ export class Config {
     this.interactive = params.interactive ?? false;
     this.shikiManagerApiUrl =
       params.shikiManagerApiUrl ?? 'http://localhost:8080';
+    this.authMethod = params.authMethod;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -723,6 +726,10 @@ export class Config {
 
   getShikiManagerApiUrl(): string {
     return this.shikiManagerApiUrl;
+  }
+
+  getAuthMethod(): AuthType | undefined {
+    return this.authMethod;
   }
 
   async getGitService(): Promise<GitService> {
