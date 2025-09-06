@@ -28,6 +28,7 @@ import {
   WriteFileTool,
   MCPServerConfig,
   getCoreSystemPrompt,
+  AuthType,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -80,6 +81,7 @@ export interface CliArgs {
   systemPrompt?: string;
   systemPromptFile?: string;
   skipMemory?: boolean;
+  authMethod?: string;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -263,6 +265,11 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description: 'Do not load any memory from GEMINI.md files.',
           default: false,
+        })
+        .option('auth-method', {
+          type: 'string',
+          description: 'Specify the authentication method.',
+          choices: ['login-with-google', 'cloud-shell', 'use-gemini', 'use-vertex-ai'],
         })
         .check((argv) => {
           if (argv.prompt && argv.promptInteractive) {
@@ -731,6 +738,7 @@ export async function loadCliConfig(
     folderTrustFeature,
     folderTrust,
     interactive,
+    authMethod: argv.authMethod as AuthType,
   });
 }
 

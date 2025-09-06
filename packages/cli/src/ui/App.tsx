@@ -364,6 +364,38 @@ const App = ({
   } = useAuthCommand(settings, setAuthError, config);
 
   useEffect(() => {
+    const initialAuth = async () => {
+      // Get the auth method specified on the command line from the Config object.
+      const cliAuthMethod = config.getAuthMethod();
+      if (cliAuthMethod) {
+        try {
+          // If specified, refresh auth with this method and we're done.
+          await config.refreshAuth(cliAuthMethod);
+        } catch (e) {
+          setAuthError(`Failed to login with specified auth method. Message: ${getErrorMessage(e)}`);
+          openAuthDialog();
+        }
+        return;
+      }
+
+      // If not specified on CLI, check settings for a previously selected auth type.
+      const settingsAuthType = settings.merged.selectedAuthType;
+      if (settingsAuthType) {
+        try {
+          await config.refreshAuth(settingsAuthType);
+        } catch (e) {
+          // The standard auth flow in useAuthCommand will catch this and open the dialog,
+          // so we don't need to explicitly handle the error here. This is just a pre-emptive load.
+        }
+      }
+      // If neither is set, the useAuthCommand hook will automatically open the AuthDialog.
+    };
+
+    // We don't want to block the UI, so we don't await this.
+    void initialAuth();
+  }, [config]); // IMPORTANT: Use a dependency array of [config] to ensure this runs only once when the config is ready.
+
+  useEffect(() => {
     if (settings.merged.selectedAuthType && !settings.merged.useExternalAuth) {
       const error = validateAuthMethod(settings.merged.selectedAuthType);
       if (error) {
