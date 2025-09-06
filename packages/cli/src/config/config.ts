@@ -55,6 +55,7 @@ export interface CliArgs {
   promptInteractive: string | undefined;
   persona: string | undefined;
   personaFile?: string;
+  singlePersona?: string;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -114,6 +115,10 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('persona-file', {
           type: 'string',
           description: 'Loads agent persona configuration from a specified file path.',
+        })
+        .option('single-persona', {
+          type: 'string',
+          description: 'Loads a single persona A from the specified file and combines it with persona B from singlize-tasuku.json.',
         })
         .option('sandbox', {
           alias: 's',
@@ -269,6 +274,12 @@ export async function parseArguments(): Promise<CliArgs> {
           if (argv.chatList && (argv.prompt || argv.promptInteractive)) {
             throw new Error(
               'Cannot use --chat-list with --prompt or --prompt-interactive.',
+            );
+          }
+          // Check that --single-persona and --persona-file are not used together
+          if (argv.singlePersona && argv.personaFile) {
+            throw new Error(
+              'Cannot use both --single-persona and --persona-file together',
             );
           }
           return true;
@@ -515,7 +526,53 @@ export async function loadCliConfig(
 
   // Load persona from file if provided
   let filePersonaConfig: any = undefined;
-  if (argv.personaFile) {
+  if (argv.singlePersona) {
+    try {
+      // Read the single persona A file
+      const personaAContent = fs.readFileSync(argv.singlePersona, 'utf-8');
+      let personaA;
+      try {
+        personaA = JSON.parse(personaAContent);
+      } catch (parseError) {
+        console.error(
+          `Error parsing single persona file JSON from ${argv.singlePersona}: ${parseError}`,
+        );
+        process.exit(5);
+      }
+
+      // Read the singlize-tasuku.json file from project root
+      const tasukuPath = path.join(process.cwd(), 'singlize-tasuku.json');
+      const tasukuContent = fs.readFileSync(tasukuPath, 'utf-8');
+      let tasukuConfig;
+      try {
+        tasukuConfig = JSON.parse(tasukuContent);
+      } catch (parseError) {
+        console.error(
+          `Error parsing singlize-tasuku.json: ${parseError}`,
+        );
+        process.exit(5);
+      }
+
+      // Extract personaB from tasuku config
+      if (!tasukuConfig.personaB) {
+        console.error(
+          'singlize-tasuku.json does not contain a personaB object',
+        );
+        process.exit(6);
+      }
+
+      // Combine personaA and personaB
+      filePersonaConfig = {
+        personaA: personaA,
+        personaB: tasukuConfig.personaB
+      };
+    } catch (readError) {
+      console.error(
+        `Error reading persona files: ${readError}`,
+      );
+      process.exit(4);
+    }
+  } else if (argv.personaFile) {
     try {
       const personaFileContent = fs.readFileSync(argv.personaFile, 'utf-8');
       try {
