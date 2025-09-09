@@ -95,6 +95,11 @@ class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<GitProcessResponse> {
+    // De-duplicate command and args. e.g., `git status status` -> `git status`
+    if (params.args && params.args.length > 0 && params.command === params.args[0]) {
+      params.args.shift(); // Remove the duplicate from the start of args
+    }
+
     const startTime = Date.now();
     console.log(
       `[GitTool] executeGitCommand started for command: ${params.command}`,

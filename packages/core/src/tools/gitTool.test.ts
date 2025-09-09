@@ -247,6 +247,36 @@ describe('GitTool', () => {
       expect(result.error).toBeUndefined();
       expect(result.llmContent).toContain('[main abc1234] Fix: resolved issue #123');
     });
+
+    it('should de-duplicate command and args', async () => {
+      // Create invocation with duplicated command in args
+      const invocation = gitTool['createInvocation']({
+        command: 'status',
+        args: ['status', '--short'],
+      });
+
+      // Start execution
+      const abortController = new AbortController();
+      const executePromise = invocation.execute(abortController.signal);
+
+      // Simulate successful git command
+      setTimeout(() => {
+        mockStdout.emit('data', Buffer.from('M  file.txt\n'));
+        mockProcess.emit('close', 0);
+      }, 10);
+
+      await executePromise;
+
+      // Verify spawn was called with de-duplicated arguments
+      expect(vi.mocked(child_process.spawn)).toHaveBeenCalledWith(
+        'git',
+        ['status', '--short'], // The 'status' duplicate should be removed
+        expect.objectContaining({
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: false,
+        })
+      );
+    });
   });
 
   describe('validateToolParams', () => {
