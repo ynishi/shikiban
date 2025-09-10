@@ -33,6 +33,7 @@ import { toolsCommand } from '../ui/commands/toolsCommand.js';
 import { settingsCommand } from '../ui/commands/settingsCommand.js';
 import { vimCommand } from '../ui/commands/vimCommand.js';
 import { setupGithubCommand } from '../ui/commands/setupGithubCommand.js';
+import { talkCommand } from '../ui/commands/talkCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part
@@ -71,6 +72,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       quitCommand,
       restoreCommand(this.config),
       statsCommand,
+      talkCommand,
       themeCommand,
       toolsCommand,
       settingsCommand,
