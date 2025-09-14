@@ -6,7 +6,6 @@
 
 import path from 'path';
 import { glob } from 'glob';
-import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import {
   BaseDeclarativeTool,
@@ -17,7 +16,7 @@ import {
   ToolResult,
 } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
-import { PartUnion, Type } from '@google/genai';
+import { PartUnion } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
@@ -72,9 +71,117 @@ class ReadFileToolInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
+    const { pathHint } = this.params;
+    const projectRoot = this.config.getTargetDir();
+    const currentWorkingDirectory = process.cwd();
+    const fileSystemService = this.config.getFileSystemService();
+    const workspaceContext = this.config.getWorkspaceContext();
+
+    let resolvedPath: string | null = null;
+
+    // Helper function to check if a file exists and is within workspace and not ignored
+    const tryResolveFile = async (absolutePath: string): Promise<boolean> => {
+      try {
+        if (!workspaceContext.isPathWithinWorkspace(absolutePath)) {
+          return false;
+        }
+        if (fileSystemService.shouldGeminiIgnoreFile(absolutePath)) {
+          return false;
+        }
+        // Try to read just to check if file exists
+        const result = await processSingleFileContent(
+          absolutePath,
+          projectRoot,
+          fileSystemService,
+          0,
+          1,
+        );
+        return !result.error;
+      } catch {
+        return false;
+      }
+    };
+
+    // 1. Check as @project-root relative path
+    if (pathHint.startsWith('@')) {
+      const projectRootRelativePath = path.join(
+        projectRoot,
+        pathHint.substring(1),
+      );
+      const exists = await tryResolveFile(projectRootRelativePath);
+      if (exists) {
+        resolvedPath = projectRootRelativePath;
+      }
+    }
+
+    // 2. Check as absolute path (if not resolved by @)
+    if (!resolvedPath && path.isAbsolute(pathHint)) {
+      const exists = await tryResolveFile(pathHint);
+      if (exists) {
+        resolvedPath = pathHint;
+      }
+    }
+
+    // 3. Check as relative to project root (if not resolved by @ or absolute)
+    if (!resolvedPath) {
+      const projectRootRelativePath = path.join(projectRoot, pathHint);
+      const exists = await tryResolveFile(projectRootRelativePath);
+      if (exists) {
+        resolvedPath = projectRootRelativePath;
+      }
+    }
+
+    // 4. Check as relative to current working directory (if not resolved by any above)
+    if (!resolvedPath) {
+      const cwdRelativePath = path.join(currentWorkingDirectory, pathHint);
+      const exists = await tryResolveFile(cwdRelativePath);
+      if (exists) {
+        resolvedPath = cwdRelativePath;
+      }
+    }
+
+    if (!resolvedPath) {
+      const errorMessage = `File not found: ${pathHint}. Could not resolve as @project-root relative, absolute, project-root relative, or current-directory relative path.`;
+      return {
+        llmContent: 'Could not read file because no file was found at the specified path.',
+        returnDisplay: errorMessage,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.FILE_NOT_FOUND,
+        },
+      };
+    }
+
+    // Final check after path resolution: ensure it's within workspace and not ignored
+    if (!workspaceContext.isPathWithinWorkspace(resolvedPath)) {
+      const directories = workspaceContext.getDirectories();
+      const errorMessage = `File path '${resolvedPath}' is not within one of the workspace directories: ${directories.join(', ')}`;
+      return {
+        llmContent: errorMessage,
+        returnDisplay: errorMessage,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.INVALID_TOOL_PARAMS,
+        },
+      };
+    }
+
+    if (fileSystemService.shouldGeminiIgnoreFile(resolvedPath)) {
+      const errorMessage = `File path '${resolvedPath}' is ignored by .geminiignore pattern(s).`;
+      return {
+        llmContent: errorMessage,
+        returnDisplay: errorMessage,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.INVALID_TOOL_PARAMS,
+        },
+      };
+    }
+
     const result = await processSingleFileContent(
-      this.params.pathHint,
-      this.config.getTargetDir(),
+      resolvedPath,
+      projectRoot,
+      fileSystemService,
       this.params.offset,
       this.params.limit,
     );
@@ -144,13 +251,13 @@ ${result.llmContent}`;
       typeof result.llmContent === 'string'
         ? result.llmContent.split('\n').length
         : undefined;
-    const mimetype = getSpecificMimeType(this.params.pathHint);
+    const mimetype = getSpecificMimeType(resolvedPath);
     recordFileOperationMetric(
       this.config,
       FileOperation.READ,
       lines,
       mimetype,
-      path.extname(this.params.pathHint),
+      path.extname(resolvedPath),
     );
 
     return {
@@ -174,27 +281,27 @@ export class ReadFileTool extends BaseDeclarativeTool<
       ReadFileTool.Name,
       'ReadFile',
       `Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'offset' and 'limit' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), and PDF files. For text files, it can read specific line ranges.`,
-      Kind.Search,
+      Kind.Read,
       {
         properties: {
           pathHint: {
             description:
               'A partial path, relative path, or absolute path to the file.',
-            type: Type.STRING,
+            type: 'string',
           },
           offset: {
             description:
               "Optional: For text files, the 0-based line number to start reading from. Requires 'limit' to be set. Use for paginating through large files.",
-            type: Type.NUMBER,
+            type: 'number',
           },
           limit: {
             description:
               "Optional: For text files, maximum number of lines to read. Use with 'offset' to paginate through large files. If omitted, reads the entire file (if feasible, up to a default limit).",
-            type: Type.NUMBER,
+            type: 'number',
           },
         },
         required: ['pathHint'],
-        type: Type.OBJECT,
+        type: 'object',
       },
     );
   }
@@ -205,18 +312,12 @@ export class ReadFileTool extends BaseDeclarativeTool<
     return new ReadFileToolInvocation(this.config, params);
   }
 
-  protected validateToolParams(params: ReadFileToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
+  protected override validateToolParamValues(
+    params: ReadFileToolParams,
+  ): string | null {
     if (!params.pathHint || params.pathHint.trim() === '') {
-      return 'pathHint parameter cannot be empty';
+      return "The 'pathHint' parameter must be non-empty.";
     }
-
-    // Path resolution will happen in execute, so we remove the absolute path check here.
-    // The workspace check will also happen after resolution.
 
     if (params.offset !== undefined && params.offset < 0) {
       return 'Offset must be a non-negative number';
@@ -225,169 +326,6 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return 'Limit must be a positive number';
     }
 
-    // The .geminiignore check will be performed after path resolution in execute.
-
     return null;
-  }
-
-  getDescription(params: ReadFileToolParams): string {
-    if (
-      !params ||
-      typeof params.pathHint !== 'string' ||
-      params.pathHint.trim() === ''
-    ) {
-      return `Path unavailable`;
-    }
-    // Description will now reflect the path hint, not a resolved absolute path
-    return `Searching for: ${params.pathHint}`;
-  }
-
-  toolLocations(params: ReadFileToolParams): ToolLocation[] {
-    // Since we don't know the exact path yet, return empty array or a hint
-    // For now, returning an empty array as the path is resolved in execute.
-    return [];
-  }
-
-  async execute(
-    params: ReadFileToolParams,
-    signal: AbortSignal,
-  ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return {
-        llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
-        returnDisplay: validationError,
-      };
-    }
-
-    const { pathHint } = params;
-    const projectRoot = this.config.getProjectRoot();
-    const currentWorkingDirectory = process.cwd();
-    const fileService = this.config.getFileService();
-    const workspaceContext = this.config.getWorkspaceContext();
-
-    let filePath: string | null = null;
-    let summary = '';
-
-    // Helper function to check if a file exists and is within workspace and not ignored
-    const tryResolveFile = async (absolutePath: string): Promise<boolean> => {
-      try {
-        if (!workspaceContext.isPathWithinWorkspace(absolutePath)) {
-          return false;
-        }
-        if (fileService.shouldGeminiIgnoreFile(absolutePath)) {
-          return false;
-        }
-        // Try to read just to check if file exists
-        const result = await processSingleFileContent(
-          absolutePath,
-          this.config.getTargetDir(),
-          0,
-          1,
-        );
-        return !result.error;
-      } catch {
-        return false;
-      }
-    };
-
-    // 1. Check as @project-root relative path
-    if (pathHint.startsWith('@')) {
-      const projectRootRelativePath = path.join(
-        projectRoot,
-        pathHint.substring(1),
-      );
-      const exists = await tryResolveFile(projectRootRelativePath);
-      if (exists) {
-        filePath = projectRootRelativePath;
-      }
-    }
-
-    // 2. Check as absolute path (if not resolved by @)
-    if (!filePath && path.isAbsolute(pathHint)) {
-      const exists = await tryResolveFile(pathHint);
-      if (exists) {
-        filePath = pathHint;
-      }
-    }
-
-    // 3. Check as relative to project root (if not resolved by @ or absolute)
-    if (!filePath) {
-      const projectRootRelativePath = path.join(projectRoot, pathHint);
-      const exists = await tryResolveFile(projectRootRelativePath);
-      if (exists) {
-        filePath = projectRootRelativePath;
-      }
-    }
-
-    // 4. Check as relative to current working directory (if not resolved by any above)
-    if (!filePath) {
-      const cwdRelativePath = path.join(currentWorkingDirectory, pathHint);
-      const exists = await tryResolveFile(cwdRelativePath);
-      if (exists) {
-        filePath = cwdRelativePath;
-      }
-    }
-
-    if (!filePath) {
-      summary = `File not found: ${pathHint}. Could not resolve as @project-root relative, absolute, project-root relative, or current-directory relative path.`;
-      return {
-        llmContent: summary,
-        returnDisplay: summary,
-        summary,
-      };
-    }
-
-    // Final check after path resolution: ensure it's within workspace and not ignored
-    if (!workspaceContext.isPathWithinWorkspace(filePath)) {
-      const directories = workspaceContext.getDirectories();
-      summary = `File path '${filePath}' is not within one of the workspace directories: ${directories.join(', ')}`;
-      return {
-        llmContent: summary,
-        returnDisplay: summary,
-        summary,
-      };
-    }
-    if (fileService.shouldGeminiIgnoreFile(filePath)) {
-      summary = `File path '${filePath}' is ignored by .geminiignore pattern(s).`;
-      return {
-        llmContent: summary,
-        returnDisplay: summary,
-        summary,
-      };
-    }
-
-    const result = await processSingleFileContent(
-      filePath, // Use the resolved filePath
-      this.config.getTargetDir(),
-      params.offset,
-      params.limit,
-    );
-
-    if (result.error) {
-      return {
-        llmContent: result.error, // The detailed error for LLM
-        returnDisplay: `Error reading file '${filePath}': ${result.returnDisplay || 'Unknown error'}`, // User-friendly error with full path
-      };
-    }
-
-    const lines =
-      typeof result.llmContent === 'string'
-        ? result.llmContent.split('\n').length
-        : undefined;
-    const mimetype = getSpecificMimeType(filePath);
-    recordFileOperationMetric(
-      this.config,
-      FileOperation.READ,
-      lines,
-      mimetype,
-      path.extname(filePath),
-    );
-
-    // Always return the full path in returnDisplay
-    return {
-      llmContent: result.llmContent || '',
-      returnDisplay: `--- ${filePath} ---\n${result.returnDisplay || ''}`,
-    };
   }
 }
