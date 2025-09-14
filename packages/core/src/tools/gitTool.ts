@@ -12,14 +12,13 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
+  BaseToolInvocation, // Added for extending
   Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
   ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
 } from './tools.js';
-import { Config } from '../config/config.js';
-import { SchemaValidator } from '../utils/schemaValidator.js';
 
 // Define the parameters for the GitTool
 export interface GitToolParams {
@@ -42,13 +41,12 @@ interface GitProcessResponse {
 /**
  * Represents an invocation of the Git tool.
  */
-class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
-  constructor(
-    public readonly params: GitToolParams,
-    private readonly config: Config,
-  ) {}
+class GitToolInvocation extends BaseToolInvocation<GitToolParams, ToolResult> {
+  constructor(params: GitToolParams) {
+    super(params);
+  }
 
-  getDescription(): string {
+  override getDescription(): string {
     const argsString = this.params.args ? ` ${this.params.args.join(' ')}` : '';
     const directoryString = this.params.directory
       ? ` in directory "${this.params.directory}"`
@@ -56,11 +54,11 @@ class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
     return `Executing Git command: "git ${this.params.command}${argsString}"${directoryString}`;
   }
 
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     return [];
   }
 
-  shouldConfirmExecute(
+  override shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<false | ToolCallConfirmationDetails> {
     return Promise.resolve(false);
@@ -227,7 +225,7 @@ class GitToolInvocation implements ToolInvocation<GitToolParams, ToolResult> {
     });
   }
 
-  async execute(
+  override async execute(
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
@@ -291,7 +289,7 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
   public static readonly DEFAULT_TIMEOUT = 60000; // 1 minute // Changed from private
   public static readonly MAX_TIMEOUT = 300000; // 5 minutes // Changed from private
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       GitTool.Name,
       'Git',
@@ -327,11 +325,7 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
     );
   }
 
-  protected validateToolParams(params: GitToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
+  public override validateToolParamValues(params: GitToolParams): string | null {
 
     if (!params.command || !params.command.trim()) {
       return 'Git command cannot be empty or just whitespace.';
@@ -362,6 +356,6 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
   protected createInvocation(
     params: GitToolParams,
   ): ToolInvocation<GitToolParams, ToolResult> {
-    return new GitToolInvocation(params, this.config);
+    return new GitToolInvocation(params);
   }
 }

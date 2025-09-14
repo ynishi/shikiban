@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as Diff from 'diff';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Kind,
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
@@ -143,7 +144,7 @@ class EditToolInvocation extends BaseToolInvocation<
 > {
   constructor(
     private readonly config: Config,
-    public params: EditToolParams,
+    public override params: EditToolParams,
   ) {
     super(params);
   }
@@ -152,7 +153,7 @@ class EditToolInvocation extends BaseToolInvocation<
    * Determines any file locations affected by the tool execution
    * @returns A list of such paths
    */
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     return [{ path: this.params.file_path }];
   }
 
@@ -315,7 +316,7 @@ class EditToolInvocation extends BaseToolInvocation<
    * Handles the confirmation prompt for the Edit tool in the CLI.
    * It needs to calculate the diff to show the user.
    */
-  async shouldConfirmExecute(
+  override async shouldConfirmExecute(
     abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
     if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
@@ -380,7 +381,7 @@ class EditToolInvocation extends BaseToolInvocation<
     return confirmationDetails;
   }
 
-  getDescription(): string {
+  override getDescription(): string {
     const relativePath = makeRelative(
       this.params.file_path,
       this.config.getTargetDir(),
@@ -407,7 +408,7 @@ class EditToolInvocation extends BaseToolInvocation<
    * @param params Parameters for the edit operation
    * @returns Result of the edit operation
    */
-  async execute(signal: AbortSignal): Promise<ToolResult> {
+  override async execute(signal: AbortSignal): Promise<ToolResult> {
     let editData: CalculatedEdit;
     try {
       editData = await this.calculateEdit(this.params, signal);

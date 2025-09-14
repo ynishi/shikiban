@@ -5,7 +5,6 @@
  */
 
 import path from 'path';
-import { glob } from 'glob';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import {
   BaseDeclarativeTool,
@@ -58,7 +57,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     super(params);
   }
 
-  getDescription(): string {
+  override getDescription(): string {
     const relativePath = makeRelative(
       this.params.pathHint,
       this.config.getTargetDir(),
@@ -66,11 +65,11 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     return shortenPath(relativePath);
   }
 
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     return [{ path: this.params.pathHint, line: this.params.offset }];
   }
 
-  async execute(): Promise<ToolResult> {
+  override async execute(): Promise<ToolResult> {
     const { pathHint } = this.params;
     const projectRoot = this.config.getTargetDir();
     const currentWorkingDirectory = process.cwd();
@@ -85,7 +84,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
         if (!workspaceContext.isPathWithinWorkspace(absolutePath)) {
           return false;
         }
-        if (fileSystemService.shouldGeminiIgnoreFile(absolutePath)) {
+        if (this.config.getFileService().shouldIgnoreFile(absolutePath, this.config.getFileFilteringOptions())) {
           return false;
         }
         // Try to read just to check if file exists
@@ -166,7 +165,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
       };
     }
 
-    if (fileSystemService.shouldGeminiIgnoreFile(resolvedPath)) {
+    if (this.config.getFileService().shouldIgnoreFile(resolvedPath, this.config.getFileFilteringOptions())) {
       const errorMessage = `File path '${resolvedPath}' is ignored by .geminiignore pattern(s).`;
       return {
         llmContent: errorMessage,

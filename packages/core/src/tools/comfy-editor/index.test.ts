@@ -171,7 +171,7 @@ describe('ComfyWorkflow', () => {
       });
 
       expect(updatedNodes.length).toBe(1);
-      expect(updatedNodes[0].widgets_values[0]).toBe(999);
+      expect(updatedNodes[0]['widgets_values'][0]).toBe(999);
     });
 
     it('should throw an error if the node title does not exist', () => {
@@ -209,7 +209,7 @@ describe('ComfyWorkflow', () => {
       });
 
       expect(updatedNodes.length).toBe(1);
-      expect(updatedNodes[0].widgets_values[0]).toBe(888);
+      expect(updatedNodes[0]['widgets_values'][0]).toBe(888);
     });
 
     const twoKSamplerWorkflowJson = JSON.stringify({
@@ -325,8 +325,8 @@ describe('ComfyWorkflow', () => {
       });
 
       expect(updatedNodes.length).toBe(2);
-      expect(updatedNodes[0].widgets_values[2]).toBe(50);
-      expect(updatedNodes[1].widgets_values[2]).toBe(50);
+      expect(updatedNodes[0]['widgets_values'][2]).toBe(50);
+      expect(updatedNodes[1]['widgets_values'][2]).toBe(50);
     });
 
     it('should prioritize nodeId over other identifiers', () => {
@@ -339,7 +339,7 @@ describe('ComfyWorkflow', () => {
       });
 
       expect(updatedNodes.length).toBe(1);
-      expect(updatedNodes[0].widgets_values[2]).toBe(99);
+      expect(updatedNodes[0]['widgets_values'][2]).toBe(99);
     });
   });
 
@@ -427,7 +427,7 @@ describe('ComfyWorkflow', () => {
       const kSamplerNode = reparsed.nodes.find(
         (node: any) => node.title === 'KSampler',
       );
-      expect(kSamplerNode.widgets_values[0]).toBe(999);
+      expect(kSamplerNode['widgets_values'][0]).toBe(999);
     });
   });
 });

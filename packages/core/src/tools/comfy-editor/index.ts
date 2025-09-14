@@ -15,12 +15,10 @@ interface ComfyWorkflowData {
  * ComfyWorkflow class for parsing and manipulating ComfyUI workflow JSON
  */
 export class ComfyWorkflow {
-  private jsonContent: string;
   // TODO: Define a more specific TypeScript interface to replace 'any' for better type safety
   private workflow: ComfyWorkflowData;
 
   constructor(jsonContent: string) {
-    this.jsonContent = jsonContent;
     try {
       this.workflow = JSON.parse(jsonContent);
     } catch (error) {
@@ -83,7 +81,7 @@ export class ComfyWorkflow {
     }
 
     for (const node of nodesToUpdate) {
-      const widgetIndex = node.widgets?.findIndex(
+      const widgetIndex = node['widgets']?.findIndex(
         (widget: any) => widget.name === update.widgetName,
       );
       if (widgetIndex === undefined || widgetIndex === -1) {
@@ -92,10 +90,10 @@ export class ComfyWorkflow {
         );
       }
 
-      if (!node.widgets_values) {
-        node.widgets_values = [];
+      if (!node['widgets_values']) {
+        node['widgets_values'] = [];
       }
-      node.widgets_values[widgetIndex] = update.value;
+      node['widgets_values'][widgetIndex] = update.value;
     }
 
     return nodesToUpdate;

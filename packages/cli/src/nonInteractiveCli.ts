@@ -11,14 +11,11 @@ import {
   shutdownTelemetry,
   isTelemetrySdkInitialized,
   GeminiEventType,
-  ToolErrorType,
   AuthType,
   FlashFallbackEvent,
   logFlashFallback,
-  DEFAULT_GEMINI_FLASH_MODEL,
   isProQuotaExceededError,
   isGenericQuotaExceededError,
-  UserTierId,
   parseAndFormatApiError,
 } from '@google/gemini-cli-core';
 import { Content, Part, FunctionCall } from '@google/genai';
@@ -48,8 +45,6 @@ export async function runNonInteractive(
       config.getContentGeneratorConfig().authType ===
       AuthType.LOGIN_WITH_GOOGLE
     ) {
-      const isPaidTier = false;
-
       if (error && isProQuotaExceededError(error)) {
         message = `⚡ You have reached your daily ${currentModel} quota limit. Automatically switching from ${currentModel} to ${fallbackModel} for the remainder of this session.`;
       } else if (error && isGenericQuotaExceededError(error)) {

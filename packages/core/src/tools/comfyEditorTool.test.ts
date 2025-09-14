@@ -7,20 +7,17 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ComfyEditorTool, ComfyEditorToolParams } from './comfyEditorTool.js';
 import { executeWorkflowUpdates } from './comfy-editor/tool.js';
-import { Config } from '../config/config.js';
 import { ToolErrorType } from './tool-error.js';
-import { ToolInvocation, ToolCallConfirmationDetails, ToolResult } from './tools.js'; // Ensure ToolResult is imported
+import { ToolInvocation, ToolResult } from './tools.js'; // Ensure ToolResult is imported
 
 vi.mock('./comfy-editor/tool.js');
 
 describe('ComfyEditorTool', () => {
   let tool: ComfyEditorTool;
-  let mockConfig: Config;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfig = {} as Config;
-    tool = new ComfyEditorTool(mockConfig);
+    tool = new ComfyEditorTool();
   });
 
   it('should call executeWorkflowUpdates with the correct parameters on success', async () => {

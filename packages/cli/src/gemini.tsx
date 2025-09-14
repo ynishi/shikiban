@@ -46,7 +46,7 @@ import { detectAndEnableKittyProtocol } from './ui/utils/kittyProtocolDetector.j
 import { checkForUpdates } from './ui/utils/updateCheck.js';
 import { handleAutoUpdate } from './utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from './utils/events.js';
-import { ChatDetail, getSavedChatTags } from './ui/commands/chatCommand.js';
+import { getSavedChatTags } from './ui/commands/chatCommand.js';
 import { SettingsContext } from './ui/contexts/SettingsContext.js';
 
 export function validateDnsResolutionOrder(
@@ -315,8 +315,6 @@ export async function main() {
     process.exit(0);
   }
 
-  const shouldBeInteractive =
-    !!argv.promptInteractive || (process.stdin.isTTY && input?.length === 0);
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (config.isInteractive()) {

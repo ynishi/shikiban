@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GitTool } from './gitTool.js';
-import { Config } from '../config/config.js';
 import * as child_process from 'child_process';
 import { EventEmitter } from 'events';
 
@@ -15,7 +14,6 @@ vi.mock('child_process');
 
 describe('GitTool', () => {
   let gitTool: GitTool;
-  let mockConfig: Config;
   let mockProcess: any;
   let mockStdout: EventEmitter;
   let mockStderr: EventEmitter;
@@ -24,11 +22,8 @@ describe('GitTool', () => {
     // Clear all mocks before each test
     vi.clearAllMocks();
 
-    // Create mock config
-    mockConfig = {} as Config;
-
     // Create GitTool instance
-    gitTool = new GitTool(mockConfig);
+    gitTool = new GitTool();
 
     // Create mock process with event emitters
     mockStdout = new EventEmitter();

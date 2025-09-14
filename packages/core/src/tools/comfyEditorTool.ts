@@ -8,14 +8,12 @@ import { Type } from '@google/genai';
 import { executeWorkflowUpdates } from './comfy-editor/tool.js';
 import { ToolErrorType } from './tool-error.js';
 import {
-  BaseDeclarativeTool, // Changed from BaseTool
+  BaseDeclarativeTool,
+  BaseToolInvocation,
   Kind,
   ToolResult,
-  ToolInvocation, // Added
-  ToolLocation, // Added
-  ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
+  ToolInvocation,
 } from './tools.js';
-import { Config } from '../config/config.js';
 
 export interface ComfyEditorToolParams {
   file_path: string;
@@ -33,29 +31,19 @@ export interface ComfyEditorToolParams {
 /**
  * Represents an invocation of the ComfyEditor tool.
  */
-class ComfyEditorToolInvocation
-  implements ToolInvocation<ComfyEditorToolParams, ToolResult>
-{
-  constructor(
-    public readonly params: ComfyEditorToolParams,
-    private readonly config: Config,
-  ) {}
+class ComfyEditorToolInvocation extends BaseToolInvocation<
+  ComfyEditorToolParams,
+  ToolResult
+> {
+  constructor(public override readonly params: ComfyEditorToolParams) {
+    super(params);
+  }
 
-  getDescription(): string {
+  override getDescription(): string {
     return `Editing ComfyUI workflow: ${this.params.file_path}`;
   }
 
-  toolLocations(): ToolLocation[] {
-    return [];
-  }
-
-  shouldConfirmExecute(
-    _abortSignal: AbortSignal,
-  ): Promise<false | ToolCallConfirmationDetails> {
-    return Promise.resolve(false);
-  }
-
-  async execute(
+  override async execute(
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
@@ -86,7 +74,7 @@ export class ComfyEditorTool extends BaseDeclarativeTool<
 > {
   static readonly Name: string = 'comfy_editor';
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       ComfyEditorTool.Name,
       'ComfyEditor',
@@ -142,6 +130,6 @@ export class ComfyEditorTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: ComfyEditorToolParams,
   ): ToolInvocation<ComfyEditorToolParams, ToolResult> {
-    return new ComfyEditorToolInvocation(params, this.config);
+    return new ComfyEditorToolInvocation(params);
   }
 }

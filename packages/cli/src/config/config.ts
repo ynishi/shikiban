@@ -305,19 +305,19 @@ export async function parseArguments(): Promise<CliArgs> {
             );
           }
           // New exclusive check for chat options
-          if (argv.chatList && (argv.prompt || argv.promptInteractive)) {
+          if (argv['chatList'] && (argv.prompt || argv['promptInteractive'])) {
             throw new Error(
               'Cannot use --chat-list with --prompt or --prompt-interactive.',
             );
           }
           // Check that --single-persona and --persona-file are not used together
-          if (argv.singlePersona && argv.personaFile) {
+          if (argv['singlePersona'] && argv['personaFile']) {
             throw new Error(
               'Cannot use both --single-persona and --persona-file together',
             );
           }
           // Check that --append-persona is not used with --single-persona or --persona-file
-          if (argv.appendPersona && (argv.singlePersona || argv.personaFile)) {
+          if (argv['appendPersona'] && (argv['singlePersona'] || argv['personaFile'])) {
             throw new Error(
               'Cannot use --append-persona with --single-persona or --persona-file',
             );
@@ -572,16 +572,16 @@ export async function loadCliConfig(
 
   // Load persona from file if provided
   let filePersonaConfig: any = undefined;
-  if (argv.singlePersona) {
+  if (argv['singlePersona']) {
     try {
       // Read the single persona A file
-      const personaAContent = fs.readFileSync(argv.singlePersona, 'utf-8');
+      const personaAContent = fs.readFileSync(argv['singlePersona'], 'utf-8');
       let personaA;
       try {
         personaA = JSON.parse(personaAContent);
       } catch (parseError) {
         console.error(
-          `Error parsing single persona file JSON from ${argv.singlePersona}: ${parseError}`,
+          `Error parsing single persona file JSON from ${argv['singlePersona']}: ${parseError}`,
         );
         process.exit(5);
       }
@@ -597,20 +597,20 @@ export async function loadCliConfig(
       );
       process.exit(4);
     }
-  } else if (argv.personaFile) {
+  } else if (argv['personaFile']) {
     try {
-      const personaFileContent = fs.readFileSync(argv.personaFile, 'utf-8');
+      const personaFileContent = fs.readFileSync(argv['personaFile'], 'utf-8');
       try {
         filePersonaConfig = JSON.parse(personaFileContent);
       } catch (parseError) {
         console.error(
-          `Error parsing persona file JSON from ${argv.personaFile}: ${parseError}`,
+          `Error parsing persona file JSON from ${argv['personaFile']}: ${parseError}`,
         );
         process.exit(5);
       }
     } catch (readError) {
       console.error(
-        `Error reading persona file ${argv.personaFile}: ${readError}`,
+        `Error reading persona file ${argv['personaFile']}: ${readError}`,
       );
       process.exit(4);
     }
@@ -638,9 +638,9 @@ export async function loadCliConfig(
   }
 
   // Handle appended persona
-  if (argv.appendPersona) {
+  if (argv['appendPersona']) {
     try {
-      const appendedPersonaContent = fs.readFileSync(argv.appendPersona, 'utf-8');
+      const appendedPersonaContent = fs.readFileSync(argv['appendPersona'], 'utf-8');
       const appendedPersona = JSON.parse(appendedPersonaContent);
 
       const personaString = `
@@ -658,11 +658,11 @@ You will also embody the following persona:
     } catch (error) {
       if (error instanceof Error) {
         console.error(
-          `Error processing appended persona file ${argv.appendPersona}: ${error.message}`,
+          `Error processing appended persona file ${argv['appendPersona']}: ${error.message}`,
         );
       } else {
         console.error(
-          `An unknown error occurred while processing appended persona file ${argv.appendPersona}.`,
+          `An unknown error occurred while processing appended persona file ${argv['appendPersona']}.`,
         );
       }
       process.exit(4);
@@ -670,7 +670,7 @@ You will also embody the following persona:
   }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
-  const question = argv.promptInteractive || argv.prompt || '';
+  const question = argv['promptInteractive'] || argv.prompt || '';
 
   // Determine approval mode with backward compatibility
   let approvalMode: ApprovalMode;
@@ -698,7 +698,7 @@ You will also embody the following persona:
   }
 
   const interactive =
-    !!argv.promptInteractive || (process.stdin.isTTY && question.length === 0);
+    !!argv['promptInteractive'] || (process.stdin.isTTY && question.length === 0);
   // In non-interactive mode, exclude tools that require a prompt.
   const extraExcludes: string[] = [];
   if (!interactive && !argv.experimentalAcp) {
