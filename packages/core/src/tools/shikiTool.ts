@@ -63,7 +63,7 @@ class ShikiToolInvocation implements ToolInvocation<ShikiToolParams, ToolResult>
   private subscriptions = new Map<string, WebSocket>();
 
   constructor(
-    public readonly params: ShikiToolParams,
+    readonly params: ShikiToolParams,
     private readonly config: Config,
   ) {}
 
@@ -284,28 +284,28 @@ class ShikiToolInvocation implements ToolInvocation<ShikiToolParams, ToolResult>
           
           // Always include repo_origin and branch for clarity
           if (repoOrigin) {
-            taskDefinition.repo_origin = repoOrigin;
+            taskDefinition['repo_origin'] = repoOrigin;
           }
           if (branch) {
-            taskDefinition.branch = branch;
+            taskDefinition['branch'] = branch;
           }
           if (this.params.title) {
-            taskDefinition.title = this.params.title;
+            taskDefinition['title'] = this.params.title;
           }
           if (this.params.files) {
-            taskDefinition.files = this.params.files;
+            taskDefinition['files'] = this.params.files;
           }
           if (this.params.local_repo_dir) {
-            taskDefinition.local_repo_dir = this.params.local_repo_dir;
+            taskDefinition['local_repo_dir'] = this.params.local_repo_dir;
           }
           if (this.params.post_execution_check_command) {
-            taskDefinition.post_execution_check_command = this.params.post_execution_check_command;
+            taskDefinition['post_execution_check_command'] = this.params.post_execution_check_command;
           }
           if (this.params.keep_working_dir !== undefined) {
-            taskDefinition.keep_working_dir = this.params.keep_working_dir;
+            taskDefinition['keep_working_dir'] = this.params.keep_working_dir;
           }
           if (this.params.working_dir_prefix) {
-            taskDefinition.working_dir_prefix = this.params.working_dir_prefix;
+            taskDefinition['working_dir_prefix'] = this.params.working_dir_prefix;
           }
           
           const response = await fetch(`${apiUrl}/api/v1/tasks`, {
@@ -506,7 +506,7 @@ export class ShikiTool extends BaseDeclarativeTool<ShikiToolParams, ToolResult> 
     );
   }
 
-  validateToolParams(params: ShikiToolParams): string | null {
+  override validateToolParams(params: ShikiToolParams): string | null {
     const errors = SchemaValidator.validate(this.schema.parameters, params);
     if (errors) {
       return errors;

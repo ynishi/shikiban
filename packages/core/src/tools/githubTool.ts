@@ -12,14 +12,13 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
+  BaseToolInvocation,
   Kind,
   ToolResult,
   ToolInvocation, // Added
   ToolLocation, // Added
   ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
 } from './tools.js';
-import { Config } from '../config/config.js';
-import { SchemaValidator } from '../utils/schemaValidator.js';
 
 /**
  * Parameters for the GitHub CLI tool
@@ -46,15 +45,12 @@ interface GitHubProcessResponse {
 /**
  * Represents an invocation of the GitHub CLI tool.
  */
-class GitHubToolInvocation
-  implements ToolInvocation<GitHubToolParams, ToolResult>
-{
-  constructor(
-    public readonly params: GitHubToolParams,
-    private readonly config: Config,
-  ) {}
+class GitHubToolInvocation extends BaseToolInvocation<GitHubToolParams, ToolResult> {
+  constructor(params: GitHubToolParams) {
+    super(params);
+  }
 
-  getDescription(): string {
+  override getDescription(): string {
     const argsString = this.params.args ? ` ${this.params.args.join(' ')}` : '';
     const directoryString = this.params.directory
       ? ` in directory "${this.params.directory}"`
@@ -62,11 +58,11 @@ class GitHubToolInvocation
     return `Executing GitHub CLI command: "gh ${this.params.command}${argsString}"${directoryString}`;
   }
 
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     return [];
   }
 
-  shouldConfirmExecute(
+  override shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<false | ToolCallConfirmationDetails> {
     return Promise.resolve(false);
@@ -161,6 +157,7 @@ class GitHubToolInvocation
             GEMINI_CLI: '1',
           },
         });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         endProcess(
           false,
@@ -227,7 +224,7 @@ class GitHubToolInvocation
     });
   }
 
-  async execute(
+  override async execute(
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
@@ -296,10 +293,10 @@ class GitHubToolInvocation
  */
 export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult> {
   static readonly Name: string = 'github_tool';
-  public static readonly DEFAULT_TIMEOUT = 60000; // 1 minute // Changed from private
-  public static readonly MAX_TIMEOUT = 600000; // 10 minutes // Changed from private
+  static readonly DEFAULT_TIMEOUT = 60000; // 1 minute // Changed from private
+  static readonly MAX_TIMEOUT = 600000; // 10 minutes // Changed from private
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       GitHubTool.Name,
       'GitHub CLI',
@@ -336,12 +333,7 @@ export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult
     );
   }
 
-  protected validateToolParams(params: GitHubToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
+  override validateToolParamValues(params: GitHubToolParams): string | null {
     if (!params.command || !params.command.trim()) {
       return 'GitHub CLI command cannot be empty or just whitespace.';
     }
@@ -361,7 +353,7 @@ export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult
   protected createInvocation(
     params: GitHubToolParams,
   ): ToolInvocation<GitHubToolParams, ToolResult> {
-    return new GitHubToolInvocation(params, this.config);
+    return new GitHubToolInvocation(params);
   }
 }
 
@@ -387,10 +379,10 @@ export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult
  * ```
  */
 export async function github_tool(
-  command: string,
-  args?: string[],
-  directory?: string,
-  timeout?: number,
+  _command: string,
+  _args?: string[],
+  _directory?: string,
+  _timeout?: number,
 ): Promise<{
   stdout: string;
   stderr: string;

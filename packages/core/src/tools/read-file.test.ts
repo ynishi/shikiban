@@ -13,6 +13,7 @@ import fs from 'fs';
 import fsp from 'fs/promises';
 import { Config } from '../config/config.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
+import { StandardFileSystemService } from '../services/fileSystemService.js';
 import { createMockWorkspaceContext } from '../test-utils/mockWorkspaceContext.js';
 import { ToolInvocation, ToolResult } from './tools.js';
 
@@ -29,6 +30,7 @@ describe('ReadFileTool', () => {
 
     const mockConfigInstance = {
       getFileService: () => new FileDiscoveryService(tempRootDir),
+      getFileSystemService: () => new StandardFileSystemService(),
       getTargetDir: () => tempRootDir,
       getWorkspaceContext: () => createMockWorkspaceContext(tempRootDir),
       getProjectRoot: () => tempRootDir,
@@ -52,21 +54,28 @@ describe('ReadFileTool', () => {
       expect(typeof result).not.toBe('string');
     });
 
-    it('should throw error if file path is relative', () => {
+    it('should accept relative paths (they will be resolved during execution)', () => {
       const params: ReadFileToolParams = {
         pathHint: 'relative/path.txt',
       };
-      expect(() => tool.build(params)).toThrow(
-        'File path must be absolute, but was relative: relative/path.txt. You must provide an absolute path.',
-      );
+      const result = tool.build(params);
+      expect(typeof result).not.toBe('string');
     });
 
-    it('should throw error if path is outside root', () => {
+    it('should accept absolute paths (validation happens during execution)', () => {
       const params: ReadFileToolParams = {
         pathHint: '/outside/root.txt',
       };
+      const result = tool.build(params);
+      expect(typeof result).not.toBe('string');
+    });
+
+    it('should throw error if path is empty', () => {
+      const params: ReadFileToolParams = {
+        pathHint: '',
+      };
       expect(() => tool.build(params)).toThrow(
-        /File path must be within one of the workspace directories/,
+        /The 'pathHint' parameter must be non-empty./,
       );
     });
 

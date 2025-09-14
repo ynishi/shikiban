@@ -6,8 +6,7 @@
 
 import path from 'path';
 import { glob } from 'glob';
-import { SchemaValidator } from '../utils/schemaValidator.js';
-import { BaseTool, Kind, ToolLocation, ToolResult } from './tools.js';
+import { BaseDeclarativeTool, BaseToolInvocation, ToolInvocation, Kind, ToolLocation, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import {
   processSingleFileContent,
@@ -30,78 +29,37 @@ export interface IntelligentReadToolParams {
 }
 
 /**
- * Implementation of the IntelligentRead tool logic
+ * Invocation handler for the IntelligentRead tool
  */
-export class IntelligentReadTool extends BaseTool<
+class IntelligentReadToolInvocation extends BaseToolInvocation<
   IntelligentReadToolParams,
   ToolResult
 > {
-  static readonly Name: string = 'intelligent_read';
+  private config: Config;
 
-  constructor(private config: Config) {
-    super(
-      IntelligentReadTool.Name,
-      'IntelligentRead',
-      'Reads file content by intelligently resolving partial paths or file names. Can find files using absolute paths, relative paths, or just file names.',
-      Kind.Search,
-      {
-        properties: {
-          pathHint: {
-            description:
-              'A partial path, relative path, or absolute path to the file.',
-            type: Type.STRING,
-          },
-        },
-        required: ['pathHint'],
-        type: Type.OBJECT,
-      },
-      true, // isOutputMarkdown
-      false, // canUpdateOutput
-    );
+  constructor(params: IntelligentReadToolParams, config: Config) {
+    super(params);
+    this.config = config;
   }
 
-  validateToolParams(params: IntelligentReadToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
-    if (!params.pathHint || params.pathHint.trim() === '') {
-      return 'pathHint parameter cannot be empty';
-    }
-
-    return null;
-  }
-
-  getDescription(params: IntelligentReadToolParams): string {
+  override getDescription(): string {
     if (
-      !params ||
-      typeof params.pathHint !== 'string' ||
-      params.pathHint.trim() === ''
+      !this.params ||
+      typeof this.params.pathHint !== 'string' ||
+      this.params.pathHint.trim() === ''
     ) {
       return `Path unavailable`;
     }
-    return `Searching for: ${params.pathHint}`;
+    return `Searching for: ${this.params.pathHint}`;
   }
 
-  toolLocations(_params: IntelligentReadToolParams): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     // Since we don't know the exact path yet, return empty array
     return [];
   }
 
-  async execute(
-    params: IntelligentReadToolParams,
-    signal: AbortSignal,
-  ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return {
-        llmContent: `Error: Invalid parameters provided. Reason: ${validationError}`,
-        returnDisplay: validationError,
-      };
-    }
-
-    const { pathHint } = params;
+  override async execute(signal: AbortSignal): Promise<ToolResult> {
+    const { pathHint } = this.params;
     const projectRoot = this.config.getProjectRoot();
     const currentWorkingDirectory = process.cwd();
 
@@ -125,6 +83,7 @@ export class IntelligentReadTool extends BaseTool<
         const result = await processSingleFileContent(
           absolutePath,
           this.config.getTargetDir(),
+          this.config.getFileSystemService(),
           0,
           1,
         );
@@ -191,6 +150,7 @@ export class IntelligentReadTool extends BaseTool<
           const result = await processSingleFileContent(
             file,
             this.config.getTargetDir(),
+            this.config.getFileSystemService(),
             0,
             20,
           );
@@ -213,6 +173,7 @@ export class IntelligentReadTool extends BaseTool<
       const result = await processSingleFileContent(
         filePath,
         this.config.getTargetDir(),
+        this.config.getFileSystemService(),
       );
 
       if (result.error) {
@@ -255,5 +216,51 @@ export class IntelligentReadTool extends BaseTool<
         summary,
       };
     }
+  }
+}
+
+/**
+ * Implementation of the IntelligentRead tool logic
+ */
+export class IntelligentReadTool extends BaseDeclarativeTool<
+  IntelligentReadToolParams,
+  ToolResult
+> {
+  static readonly Name: string = 'intelligent_read';
+
+  constructor(private config: Config) {
+    super(
+      IntelligentReadTool.Name,
+      'IntelligentRead',
+      'Reads file content by intelligently resolving partial paths or file names. Can find files using absolute paths, relative paths, or just file names.',
+      Kind.Search,
+      {
+        properties: {
+          pathHint: {
+            description:
+              'A partial path, relative path, or absolute path to the file.',
+            type: Type.STRING,
+          },
+        },
+        required: ['pathHint'],
+        type: Type.OBJECT,
+      },
+      true, // isOutputMarkdown
+      false // canUpdateOutput
+    );
+  }
+
+  protected createInvocation(
+    params: IntelligentReadToolParams
+  ): ToolInvocation<IntelligentReadToolParams, ToolResult> {
+    return new IntelligentReadToolInvocation(params, this.config);
+  }
+
+  override validateToolParamValues(params: IntelligentReadToolParams): string | null {
+    if (!params.pathHint || params.pathHint.trim() === '') {
+      return 'pathHint parameter cannot be empty';
+    }
+
+    return null;
   }
 }

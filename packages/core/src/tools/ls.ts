@@ -6,9 +6,14 @@
 
 import fs from 'fs';
 import path from 'path';
-import { BaseTool, Kind, ToolResult, ToolLocation } from './tools.js';
-import { Type } from '@google/genai';
-import { SchemaValidator } from '../utils/schemaValidator.js';
+import {
+  BaseDeclarativeTool,
+  BaseToolInvocation,
+  Kind,
+  ToolInvocation,
+  ToolResult,
+} from './tools.js';
+import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
 
 /**
@@ -64,68 +69,12 @@ export interface FileEntry {
   modifiedTime: Date;
 }
 
-/**
- * Implementation of the LS tool logic
- */
-export class LSTool extends BaseTool<LSToolParams, ToolResult> {
-  static readonly Name = 'list_directory';
-
-  constructor(private config: Config) {
-    super(
-      LSTool.Name,
-      'ReadFolder',
-      'Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.',
-      Kind.Read,
-      {
-        properties: {
-          path: {
-            description:
-              'The absolute path to the directory to list (must be absolute, not relative)',
-            type: Type.STRING,
-          },
-          ignore: {
-            description: 'List of glob patterns to ignore',
-            items: {
-              type: Type.STRING,
-            },
-            type: Type.ARRAY,
-          },
-          file_filtering_options: {
-            description:
-              'Optional: Whether to respect ignore patterns from .gitignore or .geminiignore',
-            type: Type.OBJECT,
-            properties: {
-              respect_git_ignore: {
-                description:
-                  'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
-                type: Type.BOOLEAN,
-              },
-              respect_gemini_ignore: {
-                description:
-                  'Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.',
-                type: Type.BOOLEAN,
-              },
-            },
-          },
-        },
-        required: ['path'],
-        type: Type.OBJECT,
-      },
-    );
-  }
-
-  /**
-   * Validates the parameters for the tool
-   * @param params Parameters to validate
-   * @returns An error message string if invalid, null otherwise
-   */
-  validateToolParams(params: LSToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-    // Path validation and workspace check moved to execute for intelligent resolution
-    return null;
+class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
+  constructor(
+    private readonly config: Config,
+    params: LSToolParams,
+  ) {
+    super(params);
   }
 
   /**
@@ -154,19 +103,14 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
 
   /**
    * Gets a description of the file reading operation
-   * @param params Parameters for the file reading
    * @returns A string describing the file being read
    */
-  getDescription(params: LSToolParams): string {
-    if (
-      !params ||
-      typeof params.path !== 'string' ||
-      params.path.trim() === ''
-    ) {
-      return `Path unavailable`;
-    }
-    // Description will now reflect the path hint, not a resolved absolute path
-    return `Listing directory for: ${params.path}`;
+  getDescription(): string {
+    const relativePath = makeRelative(
+      this.params.path,
+      this.config.getTargetDir(),
+    );
+    return shortenPath(relativePath);
   }
 
   // Helper for consistent error formatting
@@ -178,91 +122,39 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     };
   }
 
-  toolLocations(_params: LSToolParams): ToolLocation[] {
-    // Path is resolved in execute, so we can't provide a precise location here.
-    return [];
-  }
-
   /**
    * Executes the LS operation with the given parameters
-   * @param params Parameters for the LS operation
    * @returns Result of the LS operation
    */
-  async execute(
-    params: LSToolParams,
-    _signal: AbortSignal,
-  ): Promise<ToolResult> {
-    const validationError = this.validateToolParams(params);
-    if (validationError) {
-      return this.errorResult(
-        `Error: Invalid parameters provided. Reason: ${validationError}`,
-        `Failed to execute tool.`,
-      );
-    }
-
-    const pathHint = params.path;
-    let resolvedPath: string | null = null;
-    const projectRoot = this.config.getProjectRoot();
-
-    if (pathHint.startsWith('@')) {
-      resolvedPath = path.join(projectRoot, pathHint.substring(1));
-    } else {
-      // For non-'@' paths, it must be an absolute path as per current LS tool contract
-      if (path.isAbsolute(pathHint)) {
-        resolvedPath = pathHint;
-      } else {
-        return this.errorResult(
-          `Error: Path must be absolute or start with '@' for project root relative path. Received: ${pathHint}`,
-          `Invalid path format.`, // User-friendly message
-        );
-      }
-    }
-
-    // Now that we have a resolvedPath, perform workspace and existence checks
-    if (!resolvedPath) {
-      return this.errorResult(
-        `Error: Could not resolve path: ${pathHint}`,
-        `Failed to resolve path.`, // User-friendly message
-      );
-    }
-
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(resolvedPath)) {
-      const directories = workspaceContext.getDirectories();
-      return this.errorResult(
-        `Error: Path '${resolvedPath}' is not within one of the workspace directories: ${directories.join(', ')}`,
-        `Path outside workspace.`, // User-friendly message
-      );
-    }
-
+  async execute(_signal: AbortSignal): Promise<ToolResult> {
     try {
-      const stats = fs.statSync(resolvedPath);
+      const stats = fs.statSync(this.params.path);
       if (!stats) {
         // fs.statSync throws on non-existence, so this check might be redundant
         // but keeping for clarity. Error message adjusted.
         return this.errorResult(
-          `Error: Directory not found or inaccessible: ${resolvedPath}`,
-          `Directory not found or inaccessible.`, // User-friendly message
+          `Error: Directory not found or inaccessible: ${this.params.path}`,
+          `Directory not found or inaccessible.`,
         );
       }
       if (!stats.isDirectory()) {
         return this.errorResult(
-          `Error: Path is not a directory: ${resolvedPath}`,
-          `Path is not a directory.`, // User-friendly message
+          `Error: Path is not a directory: ${this.params.path}`,
+          `Path is not a directory.`,
         );
       }
 
-      const files = fs.readdirSync(resolvedPath);
+      const files = fs.readdirSync(this.params.path);
 
       const defaultFileIgnores =
         this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
 
       const fileFilteringOptions = {
         respectGitIgnore:
-          params.file_filtering_options?.respect_git_ignore ??
+          this.params.file_filtering_options?.respect_git_ignore ??
           defaultFileIgnores.respectGitIgnore,
         respectGeminiIgnore:
-          params.file_filtering_options?.respect_gemini_ignore ??
+          this.params.file_filtering_options?.respect_gemini_ignore ??
           defaultFileIgnores.respectGeminiIgnore,
       };
 
@@ -277,17 +169,17 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       if (files.length === 0) {
         // Changed error message to be more neutral for LLM
         return {
-          llmContent: `Directory ${resolvedPath} is empty.`,
+          llmContent: `Directory ${this.params.path} is empty.`,
           returnDisplay: `Directory is empty.`,
         };
       }
 
       for (const file of files) {
-        if (this.shouldIgnore(file, params.ignore)) {
+        if (this.shouldIgnore(file, this.params.ignore)) {
           continue;
         }
 
-        const fullPath = path.join(resolvedPath, file);
+        const fullPath = path.join(this.params.path, file);
         const relativePath = path.relative(
           this.config.getTargetDir(),
           fullPath,
@@ -337,7 +229,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         .map((entry) => `${entry.isDirectory ? '[DIR] ' : ''}${entry.name}`)
         .join('\n');
 
-      let resultMessage = `Directory listing for ${resolvedPath}:\n${directoryContent}`;
+      let resultMessage = `Directory listing for ${this.params.path}:\n${directoryContent}`;
       const ignoredMessages = [];
       if (gitIgnoredCount > 0) {
         ignoredMessages.push(`${gitIgnoredCount} git-ignored`);
@@ -350,7 +242,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         resultMessage += `\n\n(${ignoredMessages.join(', ')})`;
       }
 
-      let displayMessage = `Listed ${entries.length} item(s) in ${resolvedPath}.`;
+      let displayMessage = `Listed ${entries.length} item(s) in ${this.params.path}.`;
       if (ignoredMessages.length > 0) {
         displayMessage += ` (${ignoredMessages.join(', ')})`;
       }
@@ -363,8 +255,87 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       const errorMsg = `Error listing directory: ${error instanceof Error ? error.message : String(error)}`;
       return this.errorResult(
         errorMsg,
-        `Failed to list directory: ${resolvedPath}.`,
+        `Failed to list directory: ${this.params.path}.`,
       );
     }
+  }
+}
+
+/**
+ * Implementation of the LS tool logic
+ */
+export class LSTool extends BaseDeclarativeTool<LSToolParams, ToolResult> {
+  static readonly Name = 'list_directory';
+
+  constructor(private config: Config) {
+    super(
+      LSTool.Name,
+      'ReadFolder',
+      'Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.',
+      Kind.Search,
+      {
+        properties: {
+          path: {
+            description:
+              'The absolute path to the directory to list (must be absolute, not relative)',
+            type: 'string',
+          },
+          ignore: {
+            description: 'List of glob patterns to ignore',
+            items: {
+              type: 'string',
+            },
+            type: 'array',
+          },
+          file_filtering_options: {
+            description:
+              'Optional: Whether to respect ignore patterns from .gitignore or .geminiignore',
+            type: 'object',
+            properties: {
+              respect_git_ignore: {
+                description:
+                  'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
+                type: 'boolean',
+              },
+              respect_gemini_ignore: {
+                description:
+                  'Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.',
+                type: 'boolean',
+              },
+            },
+          },
+        },
+        required: ['path'],
+        type: 'object',
+      },
+    );
+  }
+
+  /**
+   * Validates the parameters for the tool
+   * @param params Parameters to validate
+   * @returns An error message string if invalid, null otherwise
+   */
+  protected override validateToolParamValues(
+    params: LSToolParams,
+  ): string | null {
+    if (!path.isAbsolute(params.path)) {
+      return `Path must be absolute: ${params.path}`;
+    }
+
+    const workspaceContext = this.config.getWorkspaceContext();
+    if (!workspaceContext.isPathWithinWorkspace(params.path)) {
+      const directories = workspaceContext.getDirectories();
+      return `Path must be within one of the workspace directories: ${directories.join(
+        ', ',
+      )}`;
+    }
+    return null;
+  }
+
+  protected createInvocation(
+    params: LSToolParams,
+  ): ToolInvocation<LSToolParams, ToolResult> {
+    return new LSToolInvocation(this.config, params);
   }
 }

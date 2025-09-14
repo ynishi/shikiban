@@ -10,6 +10,7 @@ import { ToolErrorType } from './tool-error.js';
 import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool,
+  BaseToolInvocation,
   Kind,
   ToolResult,
   ToolInvocation,
@@ -17,7 +18,7 @@ import {
   ToolCallConfirmationDetails, // Added for shouldConfirmExecute return type
 } from './tools.js';
 import { Config } from '../config/config.js';
-import { SchemaValidator } from '../utils/schemaValidator.js';
+import { recordToolCallMetrics } from '../telemetry/metrics.js';
 
 // Define the parameters for the ClaudeCodeTool
 export interface ClaudeCodeToolParams {
@@ -48,13 +49,16 @@ export type ParsedClaudeOutput = ClaudeCodeSuccessOutput | ClaudeCodeRawOutput;
 /**
  * Represents an invocation of the Claude Code tool.
  */
-class ClaudeCodeToolInvocation
-  implements ToolInvocation<ClaudeCodeToolParams, ToolResult>
-{
+class ClaudeCodeToolInvocation extends BaseToolInvocation<
+  ClaudeCodeToolParams,
+  ToolResult
+> {
   constructor(
-    public readonly params: ClaudeCodeToolParams,
+    public override readonly params: ClaudeCodeToolParams,
     private readonly config: Config,
-  ) {}
+  ) {
+    super(params);
+  }
 
   getDescription(): string {
     const promptPreview =
@@ -64,11 +68,11 @@ class ClaudeCodeToolInvocation
     return `Executing Claude Code with prompt: "${promptPreview}"`;
   }
 
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): ToolLocation[] {
     return [];
   }
 
-  shouldConfirmExecute(
+  override shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<false | ToolCallConfirmationDetails> {
     return Promise.resolve(false);
@@ -78,62 +82,74 @@ class ClaudeCodeToolInvocation
     signal: AbortSignal,
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
-    // Execute Claude Code
-    const processResponse = await this.executeClaudeCode(
-      this.params,
-      signal,
-      updateOutput,
-    );
+    const startTime = performance.now();
+    let success = false;
+    
+    try {
+      // Execute Claude Code
+      const processResponse = await this.executeClaudeCode(
+        this.params,
+        signal,
+        updateOutput,
+      );
 
-    // Handle execution failure
-    if (!processResponse.success) {
-      const errorMessage = processResponse.error || 'Unknown error occurred';
-      return {
-        llmContent: `Error executing Claude Code: ${errorMessage}`,
-        returnDisplay: `❌ Claude Code execution failed: ${errorMessage}`,
-        error: {
-          message: errorMessage,
-          type: ToolErrorType.UNKNOWN,
-        },
+      // Handle execution failure
+      if (!processResponse.success) {
+        const errorMessage = processResponse.error || 'Unknown error occurred';
+        return {
+          llmContent: `Error executing Claude Code: ${errorMessage}`,
+          returnDisplay: `❌ Claude Code execution failed: ${errorMessage}`,
+          error: {
+            message: errorMessage,
+            type: ToolErrorType.UNKNOWN,
+          },
+        };
+      }
+
+      // Parse the output
+      const parsedOutput = this.parseClaudeOutput(processResponse.output || '');
+
+      // Format the result
+      const metadata = {
+        executionTime: processResponse.executionTime,
       };
+
+      const result = {
+        output: parsedOutput,
+        metadata,
+      };
+
+      // Create a user-friendly summary
+      let returnDisplay = '✅ Claude Code executed successfully\n\n';
+
+      // Use type guard to check if parsing failed
+      if (this.isRawOutput(parsedOutput)) {
+        // If parsing failed, show raw output
+        returnDisplay +=
+          '**Raw Output:**\n```\n' + parsedOutput.rawOutput + '\n```\n';
+      } else {
+        // If parsing succeeded, format the output nicely
+        returnDisplay +=
+          '**Result:**\n```json\n' +
+          JSON.stringify(parsedOutput, null, 2) +
+          '\n```\n';
+      }
+
+      returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
+
+      success = true;
+      
+      return {
+        summary: `Claude Code executed in ${processResponse.executionTime}ms`,
+        llmContent: JSON.stringify(result, null, 2),
+        returnDisplay,
+      };
+    } catch (error) {
+      throw error;
+    } finally {
+      const durationMs = performance.now() - startTime;
+      recordToolCallMetrics(this.config, ClaudeCodeTool.Name, durationMs, success);
     }
-
-    // Parse the output
-    const parsedOutput = this.parseClaudeOutput(processResponse.output || '');
-
-    // Format the result
-    const metadata = {
-      executionTime: processResponse.executionTime,
-    };
-
-    const result = {
-      output: parsedOutput,
-      metadata,
-    };
-
-    // Create a user-friendly summary
-    let returnDisplay = '✅ Claude Code executed successfully\n\n';
-
-    // Use type guard to check if parsing failed
-    if (this.isRawOutput(parsedOutput)) {
-      // If parsing failed, show raw output
-      returnDisplay +=
-        '**Raw Output:**\n```\n' + parsedOutput.rawOutput + '\n```\n';
-    } else {
-      // If parsing succeeded, format the output nicely
-      returnDisplay +=
-        '**Result:**\n```json\n' +
-        JSON.stringify(parsedOutput, null, 2) +
-        '\n```\n';
-    }
-
-    returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
-
-    return {
-      summary: `Claude Code executed in ${processResponse.executionTime}ms`,
-      llmContent: JSON.stringify(result, null, 2),
-      returnDisplay,
-    };
   }
 
   /**
@@ -417,12 +433,7 @@ export class ClaudeCodeTool extends BaseDeclarativeTool< // Changed from BaseToo
     );
   }
 
-  protected validateToolParams(params: ClaudeCodeToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
-    if (errors) {
-      return errors;
-    }
-
+  public override validateToolParamValues(params: ClaudeCodeToolParams): string | null {
     if (!params.prompt || !params.prompt.trim()) {
       return 'Prompt cannot be empty or just whitespace.';
     }

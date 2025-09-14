@@ -8,22 +8,18 @@ import {
   Config,
   ToolCallRequestInfo,
   executeToolCall,
-  ToolRegistry,
   shutdownTelemetry,
   isTelemetrySdkInitialized,
   GeminiEventType,
-  ToolErrorType,
   AuthType,
   FlashFallbackEvent,
   logFlashFallback,
-  DEFAULT_GEMINI_FLASH_MODEL,
   isProQuotaExceededError,
   isGenericQuotaExceededError,
-  UserTierId,
+  parseAndFormatApiError,
 } from '@google/gemini-cli-core';
 import { Content, Part, FunctionCall } from '@google/genai';
 
-import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
 import { ConsolePatcher } from './ui/utils/ConsolePatcher.js';
 
 export async function runNonInteractive(
@@ -49,8 +45,6 @@ export async function runNonInteractive(
       config.getContentGeneratorConfig().authType ===
       AuthType.LOGIN_WITH_GOOGLE
     ) {
-      const isPaidTier = false;
-
       if (error && isProQuotaExceededError(error)) {
         message = `⚡ You have reached your daily ${currentModel} quota limit. Automatically switching from ${currentModel} to ${fallbackModel} for the remainder of this session.`;
       } else if (error && isGenericQuotaExceededError(error)) {
@@ -85,7 +79,6 @@ export async function runNonInteractive(
     });
 
     const geminiClient = config.getGeminiClient();
-    const toolRegistry: ToolRegistry = await config.getToolRegistry();
 
     const abortController = new AbortController();
     let currentMessages: Content[] = [
@@ -155,7 +148,6 @@ export async function runNonInteractive(
           const toolResponse = await executeToolCall(
             config,
             requestInfo,
-            toolRegistry,
             abortController.signal,
           );
 
@@ -163,8 +155,6 @@ export async function runNonInteractive(
             console.error(
               `Error executing tool ${fc.name}: ${toolResponse.resultDisplay || toolResponse.error.message}`,
             );
-            if (toolResponse.errorType === ToolErrorType.UNHANDLED_EXCEPTION)
-              process.exit(1);
           }
 
           if (toolResponse.responseParts) {
@@ -197,7 +187,7 @@ export async function runNonInteractive(
   } finally {
     consolePatcher.cleanup();
     if (isTelemetrySdkInitialized()) {
-      await shutdownTelemetry();
+      await shutdownTelemetry(config);
     }
   }
 }
