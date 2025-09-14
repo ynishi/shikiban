@@ -68,6 +68,7 @@ export interface CliArgs {
   persona: string | undefined;
   personaFile?: string;
   singlePersona?: string;
+  appendPersona?: string;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -132,6 +133,10 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('single-persona', {
           type: 'string',
           description: 'Loads a single persona A from the specified file and combines it with persona B from singlize-tasuku.json.',
+        })
+        .option('append-persona', {
+          type: 'string',
+          description: 'Loads an additional persona from the specified file to append to the default persona pair.',
         })
         .option('sandbox', {
           alias: 's',
@@ -298,6 +303,12 @@ export async function parseArguments(): Promise<CliArgs> {
           if (argv.singlePersona && argv.personaFile) {
             throw new Error(
               'Cannot use both --single-persona and --persona-file together',
+            );
+          }
+          // Check that --append-persona is not used with --single-persona or --persona-file
+          if (argv.appendPersona && (argv.singlePersona || argv.personaFile)) {
+            throw new Error(
+              'Cannot use --append-persona with --single-persona or --persona-file',
             );
           }
           return true;
@@ -607,6 +618,38 @@ export async function loadCliConfig(
       persona: argv.persona,
       personaConfig: filePersonaConfig 
     });
+  }
+
+  // Handle appended persona
+  if (argv.appendPersona) {
+    try {
+      const appendedPersonaContent = fs.readFileSync(argv.appendPersona, 'utf-8');
+      const appendedPersona = JSON.parse(appendedPersonaContent);
+
+      const personaString = `
+---
+### 🎭 Additional Persona Role
+
+You will also embody the following persona:
+
+#### ${appendedPersona.emoji} ${appendedPersona.name} (${appendedPersona.title})
+- **Role**: ${appendedPersona.role}
+- **Description**: ${appendedPersona.description}
+- **Communication Style**: ${appendedPersona.style}
+- **Responsibilities**: ${appendedPersona.responsibilities}`;
+      baseSystemPrompt += personaString;
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(
+          `Error processing appended persona file ${argv.appendPersona}: ${error.message}`,
+        );
+      } else {
+        console.error(
+          `An unknown error occurred while processing appended persona file ${argv.appendPersona}.`,
+        );
+      }
+      process.exit(4);
+    }
   }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
