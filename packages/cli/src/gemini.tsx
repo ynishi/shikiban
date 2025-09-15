@@ -8,6 +8,7 @@ import React from 'react';
 import { render } from 'ink';
 import { AppWrapper } from './ui/App.js';
 import { loadCliConfig, parseArguments } from './config/config.js';
+import { loadAllPersonas } from './config/personaLoader.js';
 import { readStdin } from './utils/readStdin.js';
 import { basename } from 'node:path';
 import v8 from 'node:v8';
@@ -152,6 +153,35 @@ export async function main() {
   }
 
   const argv = await parseArguments();
+  
+  if (argv.listPersonas) {
+    const personas = await loadAllPersonas();
+    if (personas.length === 0) {
+      console.log('No personas found in project (`./personas`) or global (`~/.gemini/personas`) directories.');
+      process.exit(0);
+    }
+
+    console.log('Available Personas:\n');
+    // Group by source for better readability
+    const grouped = personas.reduce((acc, p) => {
+      acc[p.source] = acc[p.source] || [];
+      acc[p.source].push(p);
+      return acc;
+    }, {} as Record<string, typeof personas>);
+
+    for (const source of ['Project', 'Global']) {
+      if (grouped[source]) {
+        console.log(`--- ${source} Personas ---`);
+        for (const p of grouped[source]) {
+          const typeInfo = p.type === 'Auto-Detected' ? '(auto-detected)' : '';
+          console.log(`  - ${p.id} ${typeInfo}`);
+        }
+        console.log('');
+      }
+    }
+    process.exit(0);
+  }
+  
   const extensions = loadExtensions(workspaceRoot);
   const config = await loadCliConfig(
     settings.merged,

@@ -19,6 +19,7 @@ import {
 } from './tools.js';
 import { Config } from '../config/config.js';
 import { recordToolCallMetrics } from '../telemetry/metrics.js';
+import { runWorkflowObserver } from '../hooks/workflowObserver.js';
 
 // Define the parameters for the ClaudeCodeTool
 export interface ClaudeCodeToolParams {
@@ -138,6 +139,7 @@ class ClaudeCodeToolInvocation extends BaseToolInvocation<
       returnDisplay += `\n**Execution Time:** ${processResponse.executionTime}ms`;
 
       success = true;
+      runWorkflowObserver();
       
       return {
         summary: `Claude Code executed in ${processResponse.executionTime}ms`,

@@ -31,6 +31,7 @@ import {
   AuthType,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
+import { getPersonaById } from './personaLoader.js';
 
 import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
@@ -49,16 +50,6 @@ const logger = {
   error: (...args: any[]) => console.error('[ERROR]', ...args),
 };
 
-// Hardcoded Tasuku persona B for single-persona mode
-const tasukuPersonaB = {
-  name: "Tasuku",
-  emoji: "🛠️",
-  title: "Extreme Engineering PetBots",
-  role: "Acts as Engineering PetBots, providing technical support, concise and accurate communication.",
-  description: "This persona(PetBots, MonoCameraEye Robot) analyzes the technical aspects of her UX ideas, providing constructive feedback to enhance them from within.",
-  style: "Supportive, constructive, and logical, like a helpful pet robot, expresses himself with beeps and a colored eye like 'ピポ！🔵'(greeting), 'ジジジ...🟢'(thinking) and so on",
-  responsibilities: "- Provide support for all engineering aspects to resolve task, issue, and problem."
-};
 
 export interface CliArgs {
   model: string | undefined;
@@ -68,9 +59,6 @@ export interface CliArgs {
   prompt: string | undefined;
   promptInteractive: string | undefined;
   persona: string | undefined;
-  personaFile?: string;
-  singlePersona?: string;
-  appendPersona?: string;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -88,6 +76,7 @@ export interface CliArgs {
   experimentalAcp: boolean | undefined;
   extensions: string[] | undefined;
   listExtensions: boolean | undefined;
+  listPersonas: boolean | undefined;
   proxy: string | undefined;
   includeDirectories: string[] | undefined;
   noSelfIntroduce?: boolean;
@@ -126,20 +115,11 @@ export async function parseArguments(): Promise<CliArgs> {
         })
         .option('persona', {
           type: 'string',
-          description: 'Selects the agent persona to use.',
-          choices: ['mai-yui', 'alex-jordan']
+          description: 'Selects an agent persona by its ID. Use --list-personas to see available IDs.',
         })
-        .option('persona-file', {
-          type: 'string',
-          description: 'Loads agent persona configuration from a specified file path.',
-        })
-        .option('single-persona', {
-          type: 'string',
-          description: 'Loads a single persona A from the specified file and combines it with persona B from singlize-tasuku.json.',
-        })
-        .option('append-persona', {
-          type: 'string',
-          description: 'Loads an additional persona from the specified file to append to the default persona pair.',
+        .option('list-personas', {
+          type: 'boolean',
+          description: 'Lists all available personas from project and global configs and exits.',
         })
         .option('sandbox', {
           alias: 's',
@@ -308,18 +288,6 @@ export async function parseArguments(): Promise<CliArgs> {
           if (argv['chatList'] && (argv.prompt || argv['promptInteractive'])) {
             throw new Error(
               'Cannot use --chat-list with --prompt or --prompt-interactive.',
-            );
-          }
-          // Check that --single-persona and --persona-file are not used together
-          if (argv['singlePersona'] && argv['personaFile']) {
-            throw new Error(
-              'Cannot use both --single-persona and --persona-file together',
-            );
-          }
-          // Check that --append-persona is not used with --single-persona or --persona-file
-          if (argv['appendPersona'] && (argv['singlePersona'] || argv['personaFile'])) {
-            throw new Error(
-              'Cannot use --append-persona with --single-persona or --persona-file',
             );
           }
           if (argv.yolo && argv['approvalMode']) {
@@ -570,49 +538,13 @@ export async function loadCliConfig(
     fileCount = result.fileCount;
   }
 
-  // Load persona from file if provided
-  let filePersonaConfig: any = undefined;
-  if (argv['singlePersona']) {
-    try {
-      // Read the single persona A file
-      const personaAContent = fs.readFileSync(argv['singlePersona'], 'utf-8');
-      let personaA;
-      try {
-        personaA = JSON.parse(personaAContent);
-      } catch (parseError) {
-        console.error(
-          `Error parsing single persona file JSON from ${argv['singlePersona']}: ${parseError}`,
-        );
-        process.exit(5);
-      }
-
-      // Combine personaA with hardcoded tasukuPersonaB
-      filePersonaConfig = {
-        personaA: personaA,
-        personaB: tasukuPersonaB
-      };
-    } catch (readError) {
-      console.error(
-        `Error reading persona file: ${readError}`,
-      );
-      process.exit(4);
-    }
-  } else if (argv['personaFile']) {
-    try {
-      const personaFileContent = fs.readFileSync(argv['personaFile'], 'utf-8');
-      try {
-        filePersonaConfig = JSON.parse(personaFileContent);
-      } catch (parseError) {
-        console.error(
-          `Error parsing persona file JSON from ${argv['personaFile']}: ${parseError}`,
-        );
-        process.exit(5);
-      }
-    } catch (readError) {
-      console.error(
-        `Error reading persona file ${argv['personaFile']}: ${readError}`,
-      );
-      process.exit(4);
+  // Load persona using the new loader
+  let personaConfig: any = undefined;
+  if (argv.persona) {
+    personaConfig = await getPersonaById(argv.persona);
+    if (!personaConfig) {
+      console.error(`Error: Persona with ID "${argv.persona}" not found.`);
+      process.exit(1);
     }
   }
 
@@ -632,41 +564,9 @@ export async function loadCliConfig(
     }
   } else {
     baseSystemPrompt = getCoreSystemPrompt({ 
-      persona: argv.persona,
-      personaConfig: filePersonaConfig 
+      persona: undefined, // The new getCoreSystemPrompt will handle the persona object directly
+      personaConfig: personaConfig 
     });
-  }
-
-  // Handle appended persona
-  if (argv['appendPersona']) {
-    try {
-      const appendedPersonaContent = fs.readFileSync(argv['appendPersona'], 'utf-8');
-      const appendedPersona = JSON.parse(appendedPersonaContent);
-
-      const personaString = `
----
-### 🎭 Additional Persona Role
-
-You will also embody the following persona:
-
-#### ${appendedPersona.emoji} ${appendedPersona.name} (${appendedPersona.title})
-- **Role**: ${appendedPersona.role}
-- **Description**: ${appendedPersona.description}
-- **Communication Style**: ${appendedPersona.style}
-- **Responsibilities**: ${appendedPersona.responsibilities}`;
-      baseSystemPrompt += personaString;
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error(
-          `Error processing appended persona file ${argv['appendPersona']}: ${error.message}`,
-        );
-      } else {
-        console.error(
-          `An unknown error occurred while processing appended persona file ${argv['appendPersona']}.`,
-        );
-      }
-      process.exit(4);
-    }
   }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);

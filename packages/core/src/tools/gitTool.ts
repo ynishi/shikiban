@@ -350,6 +350,19 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
       }
     }
 
+    // Validate unsafe git restore commands for safety
+    if (params.command === 'restore') {
+      if (!params.args || params.args.length === 0) {
+        return 'Git restore must be used with a specific file path. Using it without a path is disallowed for safety.';
+      }
+      const unsafeRestorePatterns = ['.', '*'];
+      for (const arg of params.args) {
+        if (unsafeRestorePatterns.includes(arg)) {
+          return `Git restore with "${arg}" is disallowed for safety. Please restore files explicitly by name.`;
+        }
+      }
+    }
+
     return null;
   }
 
