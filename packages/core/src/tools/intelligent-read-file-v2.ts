@@ -7,7 +7,6 @@
 import path from 'path';
 import { glob } from 'glob';
 import { BaseDeclarativeTool, BaseToolInvocation, ToolInvocation, Kind, ToolLocation, ToolResult } from './tools.js';
-import { Type } from '@google/genai';
 import {
   processSingleFileContent,
   getSpecificMimeType,
@@ -239,11 +238,11 @@ export class IntelligentReadTool extends BaseDeclarativeTool<
           pathHint: {
             description:
               'A partial path, relative path, or absolute path to the file.',
-            type: Type.STRING,
+            type: "string",
           },
         },
         required: ['pathHint'],
-        type: Type.OBJECT,
+        type: "object",
       },
       true, // isOutputMarkdown
       false // canUpdateOutput
