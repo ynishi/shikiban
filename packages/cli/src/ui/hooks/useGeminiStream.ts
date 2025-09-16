@@ -100,6 +100,7 @@ export const useGeminiStream = (
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
+  const isAwaitingUserAgreementRef = useRef(false);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
   const [pendingHistoryItemRef, setPendingHistoryItem] =
@@ -571,7 +572,9 @@ export const useGeminiStream = (
             );
             break;
           case ServerGeminiEventType.ToolCallRequest:
-            toolCallRequests.push(event.value);
+            if (!isAwaitingUserAgreementRef.current) {
+              toolCallRequests.push(event.value);
+            }
             break;
           case ServerGeminiEventType.UserCancelled:
             handleUserCancelledEvent(userMessageTimestamp);
@@ -601,6 +604,7 @@ export const useGeminiStream = (
             loopDetectedRef.current = true;
             break;
           case ServerGeminiEventType.AwaitingUserAgreement:
+            isAwaitingUserAgreementRef.current = true;
             if (onUserAgreementRequested) {
               onUserAgreementRequested(event.value.message);
             }
@@ -653,6 +657,7 @@ export const useGeminiStream = (
       abortControllerRef.current = new AbortController();
       const abortSignal = abortControllerRef.current.signal;
       turnCancelledRef.current = false;
+      isAwaitingUserAgreementRef.current = false;
 
       if (!prompt_id) {
         prompt_id = config.getSessionId() + '########' + getPromptCount();
