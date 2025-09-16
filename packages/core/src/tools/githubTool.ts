@@ -9,7 +9,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
-import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
   BaseToolInvocation,
@@ -303,26 +302,26 @@ export class GitHubTool extends BaseDeclarativeTool<GitHubToolParams, ToolResult
       'Executes GitHub CLI (gh) commands for repository management, pull requests, issues, and more.',
       Kind.Execute,
       {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
           command: {
-            type: Type.STRING,
+            type: 'string',
             description:
               'The GitHub CLI subcommand to execute (e.g., "pr", "issue", "repo", "api").',
           },
           args: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: 'array',
+            items: { type: 'string' },
             description:
               'An array of arguments to pass to the GitHub CLI subcommand.',
           },
           directory: {
-            type: Type.STRING,
+            type: 'string',
             description:
               'Optional: The directory in which to execute the command. Defaults to the current working directory.',
           },
           timeout: {
-            type: Type.NUMBER,
+            type: 'number',
             description: `Optional timeout in milliseconds (default: ${GitHubTool.DEFAULT_TIMEOUT}, max: ${GitHubTool.MAX_TIMEOUT}).`,
           },
         },
