@@ -9,7 +9,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
-import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool, // Changed from BaseTool
   BaseToolInvocation, // Added for extending
@@ -296,25 +295,25 @@ export class GitTool extends BaseDeclarativeTool<GitToolParams, ToolResult> {
       'Executes Git commands robustly and securely.',
       Kind.Execute, // Or a more specific Git icon if available
       {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
           command: {
-            type: Type.STRING,
+            type: 'string',
             description:
               'The Git subcommand to execute (e.g., "status", "add", "commit").',
           },
           args: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+            type: 'array',
+            items: { type: 'string' },
             description: 'An array of arguments to pass to the Git subcommand.',
           },
           directory: {
-            type: Type.STRING,
+            type: 'string',
             description:
               'Optional: The directory in which to execute the Git command. Defaults to the current working directory.',
           },
           timeout: {
-            type: Type.NUMBER,
+            type: 'number',
             description: `Optional timeout in milliseconds (default: ${GitTool.DEFAULT_TIMEOUT}).`,
           },
         },

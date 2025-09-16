@@ -7,7 +7,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import os from 'os';
 import { ToolErrorType } from './tool-error.js';
-import { Type } from '@google/genai';
 import {
   BaseDeclarativeTool,
   BaseToolInvocation,
@@ -373,10 +372,10 @@ export class ClaudeCodeTool extends BaseDeclarativeTool< // Changed from BaseToo
       'Executes a prompt using the Claude Code CLI to perform complex code analysis, generation, and manipulation.',
       Kind.Execute,
       {
-        type: Type.OBJECT,
+        type: 'object',
         properties: {
           prompt: {
-            type: Type.STRING,
+            type: "string",
             description: `About the prompt argument for the claude_code tool
 
 * Purpose: The prompt argument is a string that describes the specific task or instruction you want the
@@ -420,11 +419,11 @@ export class ClaudeCodeTool extends BaseDeclarativeTool< // Changed from BaseToo
           the file path in the prompt and let the Claude Code CLI read it itself.`,
           },
           timeout: {
-            type: Type.NUMBER,
+            type: "number",
             description: `Optional timeout in milliseconds (default: ${ClaudeCodeTool.DEFAULT_TIMEOUT}).`,
           },
           continue: {
-            type: Type.BOOLEAN,
+            type: "boolean",
             description: 'Optional: Whether to continue the previous session.',
           },
         },
