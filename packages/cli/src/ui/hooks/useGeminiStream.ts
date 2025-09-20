@@ -100,6 +100,7 @@ export const useGeminiStream = (
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
+  const isQueryInProgressRef = useRef(false);
   const isAwaitingUserAgreementRef = useRef(false);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
@@ -639,12 +640,14 @@ export const useGeminiStream = (
       options?: { isContinuation: boolean },
       prompt_id?: string,
     ) => {
-      if (
-        (streamingState === StreamingState.Responding ||
-          streamingState === StreamingState.WaitingForConfirmation) &&
-        !options?.isContinuation
-      )
+      // Use the synchronous ref to prevent race conditions
+      if (isQueryInProgressRef.current && !options?.isContinuation) {
         return;
+      }
+      // Set the lock immediately for non-continuation queries
+      if (!options?.isContinuation) {
+        isQueryInProgressRef.current = true;
+      }
 
       const userMessageTimestamp = Date.now();
 
@@ -671,6 +674,10 @@ export const useGeminiStream = (
       );
 
       if (!shouldProceed || queryToSend === null) {
+        // Make sure to release the lock if we exit early
+        if (!options?.isContinuation) {
+          isQueryInProgressRef.current = false;
+        }
         return;
       }
 
@@ -725,6 +732,10 @@ export const useGeminiStream = (
           );
         }
       } finally {
+        // Release the lock so the next query can proceed
+        if (!options?.isContinuation) {
+          isQueryInProgressRef.current = false;
+        }
         setIsResponding(false);
       }
     },
