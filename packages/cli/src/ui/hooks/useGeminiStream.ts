@@ -101,6 +101,7 @@ export const useGeminiStream = (
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
   const isQueryInProgressRef = useRef(false);
+  const isSubmittingToolsRef = useRef(false);
   const isAwaitingUserAgreementRef = useRef(false);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
@@ -759,125 +760,138 @@ export const useGeminiStream = (
 
   const handleCompletedTools = useCallback(
     async (completedToolCallsFromScheduler: TrackedToolCall[]) => {
+      // Check the synchronous lock to prevent race conditions
+      if (isSubmittingToolsRef.current) {
+        return;
+      }
+      
       if (isResponding) {
         return;
       }
 
-      const completedAndReadyToSubmitTools =
-        completedToolCallsFromScheduler.filter(
-          (
-            tc: TrackedToolCall,
-          ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
-            const isTerminalState =
-              tc.status === 'success' ||
-              tc.status === 'error' ||
-              tc.status === 'cancelled';
+      // Set the lock immediately
+      isSubmittingToolsRef.current = true;
 
-            if (isTerminalState) {
-              const completedOrCancelledCall = tc as
-                | TrackedCompletedToolCall
-                | TrackedCancelledToolCall;
-              return (
-                completedOrCancelledCall.response?.responseParts !== undefined
-              );
-            }
-            return false;
-          },
-        );
+      try {
+        const completedAndReadyToSubmitTools =
+          completedToolCallsFromScheduler.filter(
+            (
+              tc: TrackedToolCall,
+            ): tc is TrackedCompletedToolCall | TrackedCancelledToolCall => {
+              const isTerminalState =
+                tc.status === 'success' ||
+                tc.status === 'error' ||
+                tc.status === 'cancelled';
 
-      // Finalize any client-initiated tools as soon as they are done.
-      const clientTools = completedAndReadyToSubmitTools.filter(
-        (t) => t.request.isClientInitiated,
-      );
-      if (clientTools.length > 0) {
-        markToolsAsSubmitted(clientTools.map((t) => t.request.callId));
-      }
-
-      // Identify new, successful save_memory calls that we haven't processed yet.
-      const newSuccessfulMemorySaves = completedAndReadyToSubmitTools.filter(
-        (t) =>
-          t.request.name === 'save_memory' &&
-          t.status === 'success' &&
-          !processedMemoryToolsRef.current.has(t.request.callId),
-      );
-
-      if (newSuccessfulMemorySaves.length > 0) {
-        // Perform the refresh only if there are new ones.
-        void performMemoryRefresh();
-        // Mark them as processed so we don't do this again on the next render.
-        newSuccessfulMemorySaves.forEach((t) =>
-          processedMemoryToolsRef.current.add(t.request.callId),
-        );
-      }
-
-      const geminiTools = completedAndReadyToSubmitTools.filter(
-        (t) => !t.request.isClientInitiated,
-      );
-
-      if (geminiTools.length === 0) {
-        return;
-      }
-
-      // If all the tools were cancelled, don't submit a response to Gemini.
-      const allToolsCancelled = geminiTools.every(
-        (tc) => tc.status === 'cancelled',
-      );
-
-      if (allToolsCancelled) {
-        if (geminiClient) {
-          // We need to manually add the function responses to the history
-          // so the model knows the tools were cancelled.
-          const responsesToAdd = geminiTools.flatMap(
-            (toolCall) => toolCall.response.responseParts,
+              if (isTerminalState) {
+                const completedOrCancelledCall = tc as
+                  | TrackedCompletedToolCall
+                  | TrackedCancelledToolCall;
+                return (
+                  completedOrCancelledCall.response?.responseParts !== undefined
+                );
+              }
+              return false;
+            },
           );
-          const combinedParts: Part[] = [];
-          for (const response of responsesToAdd) {
-            if (Array.isArray(response)) {
-              combinedParts.push(...response);
-            } else if (typeof response === 'string') {
-              combinedParts.push({ text: response });
-            } else {
-              combinedParts.push(response);
-            }
-          }
-          geminiClient.addHistory({
-            role: 'user',
-            parts: combinedParts,
-          });
+
+        // Finalize any client-initiated tools as soon as they are done.
+        const clientTools = completedAndReadyToSubmitTools.filter(
+          (t) => t.request.isClientInitiated,
+        );
+        if (clientTools.length > 0) {
+          markToolsAsSubmitted(clientTools.map((t) => t.request.callId));
         }
 
+        // Identify new, successful save_memory calls that we haven't processed yet.
+        const newSuccessfulMemorySaves = completedAndReadyToSubmitTools.filter(
+          (t) =>
+            t.request.name === 'save_memory' &&
+            t.status === 'success' &&
+            !processedMemoryToolsRef.current.has(t.request.callId),
+        );
+
+        if (newSuccessfulMemorySaves.length > 0) {
+          // Perform the refresh only if there are new ones.
+          void performMemoryRefresh();
+          // Mark them as processed so we don't do this again on the next render.
+          newSuccessfulMemorySaves.forEach((t) =>
+            processedMemoryToolsRef.current.add(t.request.callId),
+          );
+        }
+
+        const geminiTools = completedAndReadyToSubmitTools.filter(
+          (t) => !t.request.isClientInitiated,
+        );
+
+        if (geminiTools.length === 0) {
+          return;
+        }
+
+        // If all the tools were cancelled, don't submit a response to Gemini.
+        const allToolsCancelled = geminiTools.every(
+          (tc) => tc.status === 'cancelled',
+        );
+
+        if (allToolsCancelled) {
+          if (geminiClient) {
+            // We need to manually add the function responses to the history
+            // so the model knows the tools were cancelled.
+            const responsesToAdd = geminiTools.flatMap(
+              (toolCall) => toolCall.response.responseParts,
+            );
+            const combinedParts: Part[] = [];
+            for (const response of responsesToAdd) {
+              if (Array.isArray(response)) {
+                combinedParts.push(...response);
+              } else if (typeof response === 'string') {
+                combinedParts.push({ text: response });
+              } else {
+                combinedParts.push(response);
+              }
+            }
+            geminiClient.addHistory({
+              role: 'user',
+              parts: combinedParts,
+            });
+          }
+
+          const callIdsToMarkAsSubmitted = geminiTools.map(
+            (toolCall) => toolCall.request.callId,
+          );
+          markToolsAsSubmitted(callIdsToMarkAsSubmitted);
+          return;
+        }
+
+        const responsesToSend: PartListUnion[] = geminiTools.map(
+          (toolCall) => toolCall.response.responseParts,
+        );
         const callIdsToMarkAsSubmitted = geminiTools.map(
           (toolCall) => toolCall.request.callId,
         );
+
+        const prompt_ids = geminiTools.map(
+          (toolCall) => toolCall.request.prompt_id,
+        );
+
         markToolsAsSubmitted(callIdsToMarkAsSubmitted);
-        return;
+
+        // Don't continue if model was switched due to quota error
+        if (modelSwitchedFromQuotaError) {
+          return;
+        }
+
+        submitQuery(
+          mergePartListUnions(responsesToSend),
+          {
+            isContinuation: true,
+          },
+          prompt_ids[0],
+        );
+      } finally {
+        // Always release the lock
+        isSubmittingToolsRef.current = false;
       }
-
-      const responsesToSend: PartListUnion[] = geminiTools.map(
-        (toolCall) => toolCall.response.responseParts,
-      );
-      const callIdsToMarkAsSubmitted = geminiTools.map(
-        (toolCall) => toolCall.request.callId,
-      );
-
-      const prompt_ids = geminiTools.map(
-        (toolCall) => toolCall.request.prompt_id,
-      );
-
-      markToolsAsSubmitted(callIdsToMarkAsSubmitted);
-
-      // Don't continue if model was switched due to quota error
-      if (modelSwitchedFromQuotaError) {
-        return;
-      }
-
-      submitQuery(
-        mergePartListUnions(responsesToSend),
-        {
-          isContinuation: true,
-        },
-        prompt_ids[0],
-      );
     },
     [
       isResponding,
