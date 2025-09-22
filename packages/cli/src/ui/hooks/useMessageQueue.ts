@@ -58,10 +58,7 @@ export function useMessageQueue({
       setMessageQueue([]);
       submitQuery(combinedMessage);
     }
-    // Only re-run when streamingState changes, not when messageQueue changes
-    // This prevents duplicate submissions when messages are queued
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamingState]);
+  }, [streamingState, messageQueue, submitQuery]);
 
   return {
     messageQueue,
