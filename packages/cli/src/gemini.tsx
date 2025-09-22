@@ -352,19 +352,25 @@ export async function main() {
     // Detect and enable Kitty keyboard protocol once at startup
     await detectAndEnableKittyProtocol();
     setWindowTitle(basename(workspaceRoot), settings);
+    const appContent = (
+      <SettingsContext.Provider value={settings}>
+        <AppWrapper
+          config={config}
+          settings={settings}
+          startupWarnings={startupWarnings}
+          version={version}
+          noSelfIntroduce={argv.noSelfIntroduce}
+          workspaceRoot={workspaceRoot}
+        />
+      </SettingsContext.Provider>
+    );
+
     const instance = render(
-      <React.StrictMode>
-        <SettingsContext.Provider value={settings}>
-          <AppWrapper
-            config={config}
-            settings={settings}
-            startupWarnings={startupWarnings}
-            version={version}
-            noSelfIntroduce={argv.noSelfIntroduce}
-            workspaceRoot={workspaceRoot}
-          />
-        </SettingsContext.Provider>
-      </React.StrictMode>,
+      config.getDebugMode() ? (
+        <React.StrictMode>{appContent}</React.StrictMode>
+      ) : (
+        appContent
+      ),
       { exitOnCtrlC: false },
     );
 
