@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StreamingState } from '../types.js';
 
 export interface UseMessageQueueOptions {
@@ -29,6 +29,7 @@ export function useMessageQueue({
   submitQuery,
 }: UseMessageQueueOptions): UseMessageQueueReturn {
   const [messageQueue, setMessageQueue] = useState<string[]>([]);
+  const isSubmitting = useRef(false);
 
   // Add a message to the queue
   const addMessage = useCallback((message: string) => {
@@ -52,11 +53,20 @@ export function useMessageQueue({
   // Process queued messages when streaming becomes idle
   useEffect(() => {
     if (streamingState === StreamingState.Idle && messageQueue.length > 0) {
+      // Guard against duplicate submissions
+      if (isSubmitting.current) {
+        return;
+      }
+      // Set the flag immediately
+      isSubmitting.current = true;
       // Combine all messages with double newlines for clarity
       const combinedMessage = messageQueue.join('\n\n');
       // Clear the queue and submit
       setMessageQueue([]);
       submitQuery(combinedMessage);
+    } else if (streamingState !== StreamingState.Idle) {
+      // Reset the flag when not idle
+      isSubmitting.current = false;
     }
   }, [streamingState, messageQueue, submitQuery]);
 
