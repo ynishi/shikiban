@@ -581,10 +581,14 @@ export class GeminiChat {
     }
 
     // Now that the stream is finished, make a decision.
-    // Throw an error if the stream was invalid OR if it was completely empty.
-    if (isStreamInvalid || !hasReceivedAnyChunk) {
+    if (!hasReceivedAnyChunk) {
       throw new EmptyStreamError(
-        'Model stream was invalid or completed without valid content.',
+        'Model stream completed without yielding any chunks. This may be due to a content filter or a server-side issue.',
+      );
+    }
+    if (isStreamInvalid) {
+      throw new EmptyStreamError(
+        'Model stream included an invalid chunk and was terminated.',
       );
     }
 
